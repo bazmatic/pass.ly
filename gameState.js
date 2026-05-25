@@ -104,5 +104,9 @@
     };
   }
 
-  return { initialState, recordPass, undoLast, activatePeriod, toggleHT };
+  function resetState() {
+    return initialState();
+  }
+
+  return { initialState, recordPass, undoLast, activatePeriod, toggleHT, resetState };
 }));

@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { initialState, recordPass, undoLast, activatePeriod, toggleHT } = require('../gameState.js');
+const { initialState, recordPass, undoLast, activatePeriod, toggleHT, resetState } = require('../gameState.js');
 
 describe('initialState', () => {
   it('returns zeroed state with empty arrays', () => {
@@ -157,5 +157,16 @@ describe('toggleHT', () => {
     s = toggleHT(s, 47 * 60, 'ts');
     assert.equal(s.htActive, false);
     assert.equal(s.events[1].phase, 'end');
+  });
+});
+
+describe('resetState', () => {
+  it('returns a zeroed state identical in shape to initialState', () => {
+    let s = initialState();
+    s = recordPass(s, 'success', 1, 'ts');
+    const r = resetState();
+    assert.deepEqual(r, initialState());
+    assert.equal(r.complete, 0);
+    assert.equal(r.events.length, 0);
   });
 });
