@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { initialState, recordPass, undoLast } = require('../gameState.js');
+const { initialState, recordPass, undoLast, activatePeriod, toggleHT } = require('../gameState.js');
 
 describe('initialState', () => {
   it('returns zeroed state with empty arrays', () => {
@@ -120,5 +120,42 @@ describe('undoLast', () => {
     const s = initialState();
     const s2 = undoLast(s);
     assert.equal(s2, s);
+  });
+});
+
+describe('activatePeriod', () => {
+  it('sets period and appends a period event', () => {
+    const s0 = initialState();
+    const s1 = activatePeriod(s0, 1, 0, 'ts');
+    assert.equal(s1.period, 1);
+    assert.equal(s1.events.length, 1);
+    assert.equal(s1.events[0].type, 'period');
+    assert.equal(s1.events[0].period, 1);
+    assert.equal(s1.events[0].elapsed, 0);
+  });
+
+  it('can activate period 2', () => {
+    const s0 = initialState();
+    const s1 = activatePeriod(s0, 2, 45 * 60, 'ts');
+    assert.equal(s1.period, 2);
+    assert.equal(s1.events[0].period, 2);
+  });
+});
+
+describe('toggleHT', () => {
+  it('sets htActive true and appends halftime start event', () => {
+    const s0 = initialState();
+    const s1 = toggleHT(s0, 45 * 60, 'ts');
+    assert.equal(s1.htActive, true);
+    assert.equal(s1.events[0].type, 'halftime');
+    assert.equal(s1.events[0].phase, 'start');
+  });
+
+  it('sets htActive false and appends halftime end event on second call', () => {
+    let s = initialState();
+    s = toggleHT(s, 45 * 60, 'ts');
+    s = toggleHT(s, 47 * 60, 'ts');
+    assert.equal(s.htActive, false);
+    assert.equal(s.events[1].phase, 'end');
   });
 });

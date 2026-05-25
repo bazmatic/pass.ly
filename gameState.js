@@ -87,5 +87,22 @@
     return { ...snap, history: state.history.slice(0, -1) };
   }
 
-  return { initialState, recordPass, undoLast };
+  function activatePeriod(state, n, elapsed, ts) {
+    return {
+      ...state,
+      period: n,
+      events: [...state.events, { type: 'period', period: n, elapsed, ts }],
+    };
+  }
+
+  function toggleHT(state, elapsed, ts) {
+    const phase = state.htActive ? 'end' : 'start';
+    return {
+      ...state,
+      htActive: !state.htActive,
+      events: [...state.events, { type: 'halftime', phase, elapsed, ts }],
+    };
+  }
+
+  return { initialState, recordPass, undoLast, activatePeriod, toggleHT };
 }));
