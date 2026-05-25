@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pass Tracker — Help</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green: #1a7c3e;
+    --green-bright: #22a854;
+    --red: #b81c2e;
+    --red-bright: #e82540;
+    --amber-bright: #f0a000;
+    --panel: #0a1f0e;
+    --card: #0f2914;
+    --text: #e8f5ec;
+    --muted: #5a8c6a;
+    --line: rgba(255,255,255,0.08);
+  }
+
+  html, body {
+    background: var(--panel);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100%;
+  }
+
+  body {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 3rem;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 1rem;
+  }
+  .header-dot {
+    width: 8px; height: 8px;
+    background: var(--green-bright);
+    border-radius: 50%; flex-shrink: 0;
+  }
+  .header-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 0.25em;
+    color: var(--muted);
+  }
+
+  /* Sections */
+  .section { margin-bottom: 2rem; }
+
+  h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  p {
+    font-size: 0.75rem;
+    line-height: 1.8;
+    color: var(--text);
+    opacity: 0.85;
+  }
+
+  p + p { margin-top: 0.5rem; }
+
+  /* Item rows */
+  .item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .badge {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.95rem;
+    letter-spacing: 0.08em;
+    border-radius: 3px;
+    padding: 0.15rem 0.5rem;
+    flex-shrink: 0;
+    min-width: 2.5rem;
+    text-align: center;
+  }
+
+  .badge-green  { background: var(--green);      color: #a8f0bf; }
+  .badge-red    { background: var(--red);         color: #ffb3b3; }
+  .badge-muted  { background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid var(--line); }
+  .badge-blue   { background: rgba(80,130,220,0.15); color: #a0c8ff; border: 1px solid rgba(100,160,255,0.15); }
+  .badge-teal   { background: rgba(60,180,140,0.15); color: #80e8c0; border: 1px solid rgba(80,200,150,0.15); }
+  .badge-purple { background: rgba(140,80,220,0.15); color: #c8a0ff; border: 1px solid rgba(180,100,255,0.15); }
+  .badge-red2   { background: rgba(220,60,60,0.15);  color: #e87070; border: 1px solid rgba(255,80,80,0.15); }
+
+  .item-desc {
+    font-size: 0.72rem;
+    line-height: 1.7;
+    color: var(--text);
+    opacity: 0.8;
+  }
+
+  /* Period buttons illustration */
+  .period-demo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .period-demo-btn {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.15em;
+    padding: 0.5rem;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    text-align: center;
+    color: var(--muted);
+    background: rgba(255,255,255,0.04);
+  }
+  .period-demo-btn.active-1 { background: #00dd55; color: #000; border: 2px solid #fff; }
+  .period-demo-btn.active-2 { background: #ffaa00; color: #000; border: 2px solid #fff; }
+  .period-demo-btn.locked   { opacity: 0.3; }
+
+  /* Callout */
+  .callout {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--green-bright);
+    border-radius: 3px;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.7rem;
+    line-height: 1.75;
+    color: var(--text);
+    opacity: 0.85;
+    margin-top: 0.75rem;
+  }
+
+  .callout.amber { border-left-color: var(--amber-bright); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-dot"></div>
+  <span class="header-title">Pass Tracker — Help</span>
+</div>
+
+<div class="section">
+  <h2>Overview</h2>
+  <p>Pass Tracker records the outcome of every pass during a match in real time. Tap the big buttons as each pass happens — the app tracks accuracy, streaks, and timing so you can review performance after the game.</p>
+</div>
+
+<div class="section">
+  <h2>Starting a Match</h2>
+  <p>Tap <strong>1st</strong> to begin the first half. The match clock starts immediately. All pass events are timestamped from this moment.</p>
+  <div class="period-demo" style="margin-top:0.75rem">
+    <div class="period-demo-btn active-1">▶ 1st 00:00</div>
+    <div class="period-demo-btn">▶ 2nd</div>
+  </div>
+  <p>At half time, tap <strong>2nd</strong>. You'll be asked to confirm — once the second half starts, first half data is locked and can't be changed. The clock continues from where it left off.</p>
+  <div class="period-demo">
+    <div class="period-demo-btn locked">▶ 1st 34:12</div>
+    <div class="period-demo-btn active-2">▶ 2nd 00:00</div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Recording Passes</h2>
+  <div class="item">
+    <span class="badge badge-green">✓</span>
+    <span class="item-desc"><strong>Complete</strong> — pass was received successfully. Increments the streak counter.</span>
+  </div>
+  <div class="item">
+    <span class="badge badge-red">✗</span>
+    <span class="item-desc"><strong>Failed</strong> — pass was intercepted or missed. Resets the streak to zero.</span>
+  </div>
+  <div class="item">
+    <span class="badge badge-muted" style="font-size:0.7rem;letter-spacing:0">↺ Streak Reset</span>
+    <span class="item-desc"><strong>Lost possession</strong> — the team lost the ball without a direct pass failure (e.g. a tackle, the ball went out, or a goal was scored). Resets the streak but does not count as a failed pass, so it doesn't affect accuracy.</span>
+  </div>
+  <div class="callout">
+    The <strong>streak</strong> counts consecutive completed passes. It resets on any fail or possession loss. The <strong>best streak</strong> (⭐) records the highest run achieved in the session.
+  </div>
+</div>
+
+<div class="section">
+  <h2>Utility Buttons</h2>
+  <div class="item">
+    <span class="badge badge-blue">↩</span>
+    <span class="item-desc"><strong>Undo</strong> — removes the last recorded event. Greyed out when there's nothing to undo.</span>
+  </div>
+  <div class="item">
+    <span class="badge badge-teal">↗</span>
+    <span class="item-desc"><strong>Share</strong> — sends a summary of current stats via the system share sheet. On desktop it copies the text to the clipboard instead.</span>
+  </div>
+  <div class="item">
+    <span class="badge badge-purple">⬇</span>
+    <span class="item-desc"><strong>Export</strong> — downloads the full session as a JSON file named <code style="opacity:0.7">pass-tracker-YYYY-MM-DD.json</code>. This file can be loaded into the stats viewer for charts and analysis.</span>
+  </div>
+  <div class="item">
+    <span class="badge badge-red2">⟳</span>
+    <span class="item-desc"><strong>Reset</strong> — clears all data and restarts from zero. A confirmation prompt appears first. This cannot be undone.</span>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Viewing Stats</h2>
+  <p>After the match, tap <strong>⬇ Export</strong> to save the JSON file, then open the <a href="stats-viewer.html" target="_blank" style="color:var(--green-bright)">Stats Viewer</a> and drop the file in to see accuracy charts, a per-pass timeline, and quarter breakdowns.</p>
+  <div class="callout amber">
+    Keep the app open during the match — closing or refreshing the page will lose unsaved data. Export before you close.
+  </div>
+</div>
+
+</body>
+</html>

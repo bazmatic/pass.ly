@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pass Stats Viewer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green: #1a7c3e;
+    --green-bright: #22a854;
+    --red: #b81c2e;
+    --red-bright: #e82540;
+    --amber: #a06000;
+    --amber-bright: #f0a000;
+    --panel: #0a1f0e;
+    --card: #0f2914;
+    --text: #e8f5ec;
+    --muted: #5a8c6a;
+    --line: rgba(255,255,255,0.08);
+  }
+
+  html, body { min-height: 100%; background: var(--panel); color: var(--text); font-family: 'DM Mono', monospace; }
+
+  body { padding: 1.25rem; max-width: 860px; margin: 0 auto; }
+
+  .header {
+    display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem;
+  }
+  .header-dot {
+    width: 8px; height: 8px; background: var(--green-bright);
+    border-radius: 50%; flex-shrink: 0;
+  }
+  .header-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem;
+    letter-spacing: 0.25em; color: var(--muted);
+  }
+  .header-reload {
+    margin-left: auto; font-size: 0.6rem; letter-spacing: 0.15em;
+    color: var(--muted); background: none; border: 1px solid var(--line);
+    border-radius: 3px; padding: 0.3rem 0.6rem; cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .header-reload:hover { color: var(--text); border-color: var(--muted); }
+
+  /* Drop zone */
+  #drop-zone {
+    border: 2px dashed var(--line); border-radius: 6px;
+    padding: 4rem 2rem; text-align: center; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  #drop-zone:hover, #drop-zone.drag-over {
+    border-color: var(--green-bright); background: rgba(34,168,84,0.05);
+  }
+  .dz-icon { font-size: 2rem; margin-bottom: 0.75rem; color: var(--muted); }
+  .dz-text { font-size: 0.72rem; letter-spacing: 0.12em; color: var(--muted); line-height: 1.8; }
+  .dz-text span { color: var(--green-bright); }
+
+  /* Content */
+  #content { display: none; }
+
+  /* Summary strip */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  @media (max-width: 600px) { .summary-grid { grid-template-columns: repeat(3, 1fr); } }
+
+  .stat-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+    padding: 0.75rem 0.5rem 0.6rem; text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .stat-card::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  }
+  .stat-card.c-green::after  { background: var(--green-bright); }
+  .stat-card.c-red::after    { background: var(--red-bright); }
+  .stat-card.c-amber::after  { background: var(--amber-bright); }
+  .stat-card.c-blue::after   { background: #4db8ff; }
+  .stat-card.c-yellow::after { background: #ffd166; }
+  .stat-card.c-teal::after   { background: #7de8a0; }
+
+  .stat-label {
+    font-size: 0.52rem; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 0.25rem;
+  }
+  .stat-value {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.9rem; line-height: 1; color: var(--text);
+  }
+
+  /* Charts layout */
+  .charts { display: flex; flex-direction: column; gap: 1rem; }
+
+  .chart-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 1rem;
+  }
+  .chart-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 0.85rem;
+    letter-spacing: 0.2em; color: var(--muted); margin-bottom: 0.75rem;
+  }
+
+  .two-col  { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 480px) { .two-col { grid-template-columns: 1fr; } }
+
+  .four-col { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+  @media (max-width: 480px) { .four-col { grid-template-columns: repeat(2, 1fr); } }
+
+  .pie-wrap    { max-width: 220px; margin: 0 auto; }
+  .pie-wrap-sm { max-width: 120px; margin: 0 auto; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-dot"></div>
+  <span class="header-title">Pass Stats Viewer</span>
+  <button class="header-reload" id="btn-reload" style="display:none">Load another file</button>
+</div>
+
+<div id="drop-zone">
+  <div class="dz-icon">📋</div>
+  <div class="dz-text">
+    Drop a <span>pass-tracker JSON</span> file here<br>or click to browse
+  </div>
+  <input type="file" id="file-input" accept=".json" style="display:none">
+</div>
+
+<div id="content">
+  <div class="summary-grid">
+    <div class="stat-card c-green">
+      <div class="stat-label">Complete</div>
+      <div class="stat-value" id="s-complete">—</div>
+    </div>
+    <div class="stat-card c-red">
+      <div class="stat-label">Failed</div>
+      <div class="stat-value" id="s-fail">—</div>
+    </div>
+    <div class="stat-card c-blue">
+      <div class="stat-label">Accuracy</div>
+      <div class="stat-value" id="s-accuracy">—</div>
+    </div>
+    <div class="stat-card c-yellow">
+      <div class="stat-label">Best Streak</div>
+      <div class="stat-value" id="s-streak">—</div>
+    </div>
+    <div class="stat-card c-teal">
+      <div class="stat-label">Duration</div>
+      <div class="stat-value" id="s-duration">—</div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-card">
+      <div class="chart-title">Running Accuracy (%)</div>
+      <canvas id="chart-accuracy" height="90"></canvas>
+    </div>
+
+    <div class="chart-card" style="position:relative">
+      <div class="chart-title">Every Pass</div>
+      <canvas id="chart-timeline" style="width:100%;display:block;cursor:crosshair"></canvas>
+      <div id="tl-tooltip" style="
+        display:none; position:absolute; pointer-events:none;
+        background:#0f2914; border:1px solid rgba(255,255,255,0.12);
+        border-radius:3px; padding:0.4rem 0.6rem;
+        font-size:0.62rem; letter-spacing:0.08em; line-height:1.7;
+        color:#e8f5ec; white-space:nowrap; z-index:10;
+      "></div>
+    </div>
+
+    <div class="four-col">
+      <div class="chart-card">
+        <div class="chart-title">Q1</div>
+        <div class="pie-wrap-sm"><canvas id="chart-q1"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Q2</div>
+        <div class="pie-wrap-sm"><canvas id="chart-q2"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Q3</div>
+        <div class="pie-wrap-sm"><canvas id="chart-q3"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Q4</div>
+        <div class="pie-wrap-sm"><canvas id="chart-q4"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const charts = {};
+
+const CHART_DEFAULTS = {
+  color: '#5a8c6a',
+  font: { family: "'DM Mono', monospace", size: 9 },
+};
+
+function gridColor() { return 'rgba(255,255,255,0.05)'; }
+
+// Custom plugin: draws a vertical dashed line at a given data index
+const htLinePlugin = {
+  id: 'htLine',
+  afterDraw(chart, _args, opts) {
+    if (opts.idx == null || opts.idx < 0) return;
+    const { ctx, chartArea, scales } = chart;
+    const x = scales.x.getPixelForValue(opts.idx);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(240,160,0,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, chartArea.top);
+    ctx.lineTo(x, chartArea.bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(240,160,0,0.8)';
+    ctx.font = `9px 'DM Mono', monospace`;
+    ctx.fillText('HT', x + 4, chartArea.top + 10);
+    ctx.restore();
+  }
+};
+Chart.register(htLinePlugin);
+
+// Finds the start/end indices of the first occurrence of the best streak
+function findBestStreak(passEvents, bestLen) {
+  const endIdx = passEvents.findIndex(e => e.streakAfter === bestLen);
+  if (endIdx < 0) return null;
+  let startIdx = endIdx;
+  while (startIdx > 0 && passEvents[startIdx].streakBefore > 0) startIdx--;
+  return { start: startIdx, end: endIdx };
+}
+
+const streakPlugin = {
+  id: 'streakBand',
+  beforeDraw(chart, _args, opts) {
+    if (!opts.start == null || !opts.end == null) return;
+    const { ctx, chartArea, scales } = chart;
+    const x1 = scales.x.getPixelForValue(opts.start);
+    const x2 = scales.x.getPixelForValue(opts.end);
+    ctx.save();
+    // Shaded band
+    ctx.fillStyle = 'rgba(34,168,84,0.12)';
+    ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.height);
+    // Edge lines
+    ctx.strokeStyle = 'rgba(34,168,84,0.4)';
+    ctx.lineWidth = 1;
+    [x1, x2].forEach(x => {
+      ctx.beginPath(); ctx.moveTo(x, chartArea.top); ctx.lineTo(x, chartArea.bottom); ctx.stroke();
+    });
+    // Label
+    ctx.fillStyle = 'rgba(125,232,160,0.85)';
+    ctx.font = `8px 'DM Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`BEST ×${opts.length}`, (x1 + x2) / 2, chartArea.top + 9);
+    ctx.restore();
+  }
+};
+
+function renderStats(data) {
+  const { summary, events } = data;
+
+  document.getElementById('s-complete').textContent = summary.complete;
+  document.getElementById('s-fail').textContent     = summary.fail;
+document.getElementById('s-accuracy').textContent = summary.accuracy;
+  document.getElementById('s-streak').textContent   = summary.bestStreak;
+  document.getElementById('s-duration').textContent = summary.duration;
+
+  document.getElementById('drop-zone').style.display = 'none';
+  document.getElementById('btn-reload').style.display = '';
+  document.getElementById('content').style.display = 'block';
+
+  const passEvents  = events.filter(e => e.type === 'success' || e.type === 'fail');
+  const periodMarks = events.filter(e => e.type === 'period');
+  const p2Mark      = periodMarks.find(e => e.period === 2);
+  const p2Idx       = p2Mark ? passEvents.findIndex(e => e.elapsed >= p2Mark.elapsed) : -1;
+
+  renderAccuracyChart(passEvents, p2Idx, summary.bestStreak);
+  renderPassTimeline(events, p2Mark);
+
+  const p1 = passEvents.filter(e => e.period === 1);
+  const p2 = passEvents.filter(e => e.period === 2);
+  const midOf = arr => {
+    const ts = arr.map(e => e.elapsed);
+    return (Math.min(...ts) + Math.max(...ts)) / 2;
+  };
+  const p1Mid = midOf(p1), p2Mid = midOf(p2);
+  renderPieChart('chart-q1', p1.filter(e => e.elapsed <= p1Mid));
+  renderPieChart('chart-q2', p1.filter(e => e.elapsed >  p1Mid));
+  renderPieChart('chart-q3', p2.filter(e => e.elapsed <= p2Mid));
+  renderPieChart('chart-q4', p2.filter(e => e.elapsed >  p2Mid));
+}
+
+const WINDOW = 15; // sliding window size
+
+function slidingAccuracy(passEvents) {
+  return passEvents.map((_, i) => {
+    const start   = Math.max(0, i - WINDOW + 1);
+    const window  = passEvents.slice(start, i + 1);
+    const ok      = window.filter(e => e.type === 'success').length;
+    return Math.round(ok / window.length * 100);
+  });
+}
+
+function renderAccuracyChart(passEvents, p2Idx, bestStreakLen) {
+  const streak = findBestStreak(passEvents, bestStreakLen);
+  const ctx = document.getElementById('chart-accuracy').getContext('2d');
+  if (charts.accuracy) charts.accuracy.destroy();
+
+  const step      = Math.max(1, Math.floor(passEvents.length / 18));
+  const labels    = passEvents.map((e, i) => i % step === 0 ? e.elapsedFormatted : '');
+  const cumData   = passEvents.map(e => e.runningAccuracy);
+  const slideData = slidingAccuracy(passEvents);
+
+  charts.accuracy = new Chart(ctx, {
+    type: 'line',
+    plugins: [htLinePlugin, streakPlugin],
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Cumulative',
+          data: cumData,
+          borderColor: 'rgba(34,168,84,0.4)',
+          backgroundColor: 'rgba(34,168,84,0.06)',
+          fill: true,
+          pointRadius: 0,
+          tension: 0.3,
+          borderWidth: 1.5,
+          borderDash: [4, 3],
+        },
+        {
+          label: `Last ${WINDOW}`,
+          data: slideData,
+          borderColor: '#7de8a0',
+          backgroundColor: 'transparent',
+          fill: false,
+          pointRadius: 0,
+          tension: 0.4,
+          borderWidth: 2,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          labels: { ...CHART_DEFAULTS, padding: 10, boxWidth: 10 }
+        },
+        htLine:    { idx: p2Idx },
+        streakBand: streak ? { start: streak.start, end: streak.end, length: bestStreakLen } : {},
+        tooltip: {
+          callbacks: {
+            title: items => passEvents[items[0].dataIndex]?.elapsedFormatted ?? '',
+            label: item  => item.dataset.label === `Last ${WINDOW}`
+              ? `Last ${WINDOW}: ${item.raw}%`
+              : `Cumulative: ${item.raw}%`,
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { ...CHART_DEFAULTS, maxRotation: 0 }, grid: { color: gridColor() } },
+        y: {
+          min: 0, max: 100,
+          ticks: { ...CHART_DEFAULTS, callback: v => v + '%' },
+          grid: { color: gridColor() }
+        }
+      }
+    }
+  });
+}
+
+// ── Per-pass canvas timeline ──────────────────────────────────────────────────
+
+let _tlEvents = null;
+let _tlP2Mark = null;
+let _tlRO     = null;
+
+function renderPassTimeline(allEvents, p2Mark) {
+  _tlEvents = allEvents;
+  _tlP2Mark = p2Mark;
+
+  const canvas  = document.getElementById('chart-timeline');
+  const tooltip = document.getElementById('tl-tooltip');
+
+  if (_tlRO) _tlRO.disconnect();
+  _tlRO = new ResizeObserver(() => drawTL(canvas, null));
+  _tlRO.observe(canvas.parentElement);
+
+  drawTL(canvas, null);
+
+  canvas.onmousemove = e => {
+    const hit = hitTest(canvas, e);
+    drawTL(canvas, hit);
+    if (hit != null) showTLTooltip(canvas, tooltip, hit);
+    else tooltip.style.display = 'none';
+  };
+  canvas.onmouseleave = () => {
+    drawTL(canvas, null);
+    tooltip.style.display = 'none';
+  };
+}
+
+const TL = { PL: 10, PR: 10, PT: 6, PB: 38, H: 100 };
+
+function tlGeom(canvas) {
+  const W  = canvas.getBoundingClientRect().width || canvas.offsetWidth;
+  const tw = W - TL.PL - TL.PR;
+  const th = TL.H - TL.PT - TL.PB;
+  const evs = (_tlEvents || []).filter(e => e.type === 'success' || e.type === 'fail');
+  const maxT = evs.length ? Math.max(...evs.map(e => e.elapsed)) : 1;
+  const xOf  = sec => TL.PL + (sec / maxT) * tw;
+  return { W, tw, th, evs, maxT, xOf };
+}
+
+function hitTest(canvas, mouseEvent) {
+  const rect = canvas.getBoundingClientRect();
+  const mx   = mouseEvent.clientX - rect.left;
+  const { xOf, evs } = tlGeom(canvas);
+  let best = -1, bestDx = 20;
+  evs.forEach((e, i) => {
+    const dx = Math.abs(xOf(e.elapsed) - mx);
+    if (dx < bestDx) { bestDx = dx; best = i; }
+  });
+  return best >= 0 ? best : null;
+}
+
+function drawTL(canvas, hitIdx) {
+  const dpr  = window.devicePixelRatio || 1;
+  const { W, tw, th, evs, maxT, xOf } = tlGeom(canvas);
+
+  canvas.width       = W * dpr;
+  canvas.height      = TL.H * dpr;
+  canvas.style.height = TL.H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const ty = TL.PT;
+
+  // Period backgrounds
+  const htX = _tlP2Mark ? xOf(_tlP2Mark.elapsed) : TL.PL + tw;
+  ctx.fillStyle = 'rgba(34,168,84,0.07)';
+  ctx.fillRect(TL.PL, ty, htX - TL.PL, th);
+  ctx.fillStyle = 'rgba(34,168,84,0.03)';
+  ctx.fillRect(htX, ty, TL.PL + tw - htX, th);
+
+  // Track border
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(TL.PL + 0.5, ty + 0.5, tw - 1, th - 1);
+
+  // Period labels
+  ctx.fillStyle = 'rgba(90,140,106,0.5)';
+  ctx.font = `8px 'DM Mono', monospace`;
+  ctx.textAlign = 'left';
+  ctx.fillText('P1', TL.PL + 4, ty + 10);
+  if (_tlP2Mark) {
+    ctx.fillText('P2', htX + 4, ty + 10);
+  }
+
+  // Events (non-highlighted)
+  evs.forEach((e, i) => {
+    if (i === hitIdx) return;
+    const x = xOf(e.elapsed);
+    ctx.fillStyle = e.type === 'success'
+      ? 'rgba(34,168,84,0.6)'
+      : 'rgba(232,37,64,0.55)';
+    ctx.fillRect(x - 1, ty + 3, 2, th - 6);
+  });
+
+  // Highlighted event (drawn on top)
+  if (hitIdx != null && evs[hitIdx]) {
+    const e = evs[hitIdx];
+    const x = xOf(e.elapsed);
+    ctx.fillStyle = e.type === 'success' ? '#7de8a0' : '#ff6680';
+    ctx.fillRect(x - 1.5, ty + 1, 3, th - 2);
+    // crosshair line through full track
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath(); ctx.moveTo(x, ty); ctx.lineTo(x, ty + th); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // HT line
+  if (_tlP2Mark) {
+    ctx.strokeStyle = 'rgba(240,160,0,0.55)';
+    ctx.lineWidth   = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(htX, ty); ctx.lineTo(htX, ty + th);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Time axis
+  ctx.fillStyle  = '#5a8c6a';
+  ctx.font       = `9px 'DM Mono', monospace`;
+  ctx.textAlign  = 'center';
+  const totalMin = Math.ceil(maxT / 60);
+  const step     = totalMin > 70 ? 10 : 5;
+  for (let m = 0; m <= totalMin; m += step) {
+    const x = xOf(m * 60);
+    if (x < TL.PL - 1 || x > TL.PL + tw + 1) continue;
+    ctx.fillStyle = '#5a8c6a';
+    ctx.fillText(`${m}'`, x, TL.H - 22);
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillRect(x - 0.5, ty + th, 1, 5);
+  }
+
+  // Legend
+  const LY = TL.H - 7;  // bottom row, below time labels
+  const items = [
+    { color: 'rgba(34,168,84,0.7)',  label: 'Complete' },
+    { color: 'rgba(232,37,64,0.65)', label: 'Failed'   },
+  ];
+  let lx = TL.PL + tw - 4;
+  ctx.font = `8px 'DM Mono', monospace`;
+  items.slice().reverse().forEach(({ color, label }) => {
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#5a8c6a';
+    ctx.fillText(label, lx, LY);
+    lx -= ctx.measureText(label).width + 16;
+    ctx.fillStyle = color;
+    ctx.fillRect(lx + 4, LY - 7, 8, 8);
+    lx -= 16;
+  });
+}
+
+function showTLTooltip(canvas, tooltip, hitIdx) {
+  const { evs, xOf } = tlGeom(canvas);
+  const e = evs[hitIdx];
+  if (!e) return;
+
+  const typeLabel = e.type === 'success' ? '✓ Complete' : '✗ Failed';
+  const typeColor = e.type === 'success' ? '#7de8a0'   : '#ff6680';
+  const streak = e.streakAfter != null
+    ? `streak ${e.streakBefore} → ${e.streakAfter}`
+    : '';
+
+  tooltip.innerHTML =
+    `<span style="color:${typeColor}">${typeLabel}</span>` +
+    `&nbsp;&nbsp;${e.elapsedFormatted}` +
+    (streak ? `&nbsp;&nbsp;<span style="color:#5a8c6a">${streak}</span>` : '') +
+    (e.runningAccuracy != null
+      ? `&nbsp;&nbsp;<span style="color:#5a8c6a">acc ${e.runningAccuracy}%</span>`
+      : '');
+
+  const canvasRect  = canvas.getBoundingClientRect();
+  const cardRect    = canvas.parentElement.getBoundingClientRect();
+  const x           = xOf(e.elapsed);
+  const tipW        = tooltip.offsetWidth || 220;
+  const leftInCard  = (canvasRect.left - cardRect.left) + x;
+  const clamped     = Math.min(Math.max(leftInCard - tipW / 2, 8), cardRect.width - tipW - 8);
+
+  tooltip.style.left    = clamped + 'px';
+  tooltip.style.top     = (TL.PT + 4) + 'px';
+  tooltip.style.display = 'block';
+}
+
+function renderPieChart(id, events) {
+  const ctx = document.getElementById(id).getContext('2d');
+  if (charts[id]) charts[id].destroy();
+
+  const ok   = events.filter(e => e.type === 'success').length;
+  const fail = events.filter(e => e.type === 'fail').length;
+  const total = ok + fail;
+  const pct = total ? Math.round(ok / total * 100) : 0;
+
+  charts[id] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Complete', 'Failed'],
+      datasets: [{
+        data: [ok, fail],
+        backgroundColor: ['#22a854', '#e82540'],
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      cutout: '62%',
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', align: 'start', labels: { ...CHART_DEFAULTS, padding: 8, boxWidth: 10 } },
+        tooltip: {
+          callbacks: {
+            label: item => {
+              const p = total ? Math.round(item.raw / total * 100) : 0;
+              return `${item.label}: ${item.raw} (${p}%)`;
+            }
+          }
+        }
+      }
+    },
+    plugins: [{
+      id: 'centerText',
+      beforeDraw(chart) {
+        const { ctx, chartArea } = chart;
+        const cx = (chartArea.left + chartArea.right) / 2;
+        const cy = (chartArea.top + chartArea.bottom) / 2;
+        ctx.save();
+        ctx.font = `bold 20px 'Bebas Neue', sans-serif`;
+        ctx.fillStyle = '#e8f5ec';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(pct + '%', cx, cy);
+        ctx.restore();
+      }
+    }]
+  });
+}
+
+// File drop / click
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('click',  () => fileInput.click());
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+document.getElementById('btn-reload').addEventListener('click', () => {
+  document.getElementById('content').style.display = 'none';
+  document.getElementById('drop-zone').style.display = '';
+  document.getElementById('btn-reload').style.display = 'none';
+  document.querySelector('.dz-text').innerHTML =
+    `Drop a <span>pass-tracker JSON</span> file here<br>or click to browse`;
+  Object.values(charts).forEach(c => c.destroy());
+  Object.keys(charts).forEach(k => delete charts[k]);
+  fileInput.value = '';
+});
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try { renderStats(JSON.parse(e.target.result)); }
+    catch { alert('Could not parse JSON file'); }
+  };
+  reader.readAsText(file);
+}
+
+// Auto-load from ?data= query param
+const dataParam = new URLSearchParams(location.search).get('data');
+if (dataParam) {
+  document.querySelector('.dz-text').innerHTML =
+    `Loading <span>${dataParam}</span>…`;
+  fetch(dataParam)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(data => renderStats(data))
+    .catch(err => {
+      document.querySelector('.dz-text').innerHTML =
+        `Could not load <span>${dataParam}</span><br>${err}`;
+    });
+}
+</script>
+</body>
+</html>

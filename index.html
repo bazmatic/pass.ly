@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pass Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green: #1a7c3e; --green-bright: #22a854;
+    --red: #b81c2e;   --red-bright: #e82540;
+    --amber: #a06000; --amber-bright: #f0a000;
+    --panel: #0a1f0e; --text: #e8f5ec;
+    --muted: #5a8c6a; --line: rgba(255,255,255,0.08);
+  }
+  html, body { height: 100%; width: 100%; }
+  body {
+    display: flex; flex-direction: column;
+    background: var(--panel);
+    font-family: 'DM Mono', monospace;
+    padding: 1rem; gap: 0.75rem;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .header { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
+  .header-dot { width: 8px; height: 8px; background: var(--green-bright); border-radius: 50%; animation: pulse 2s ease-in-out infinite; flex-shrink: 0; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
+  .header-title { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:.25em; color:var(--muted); }
+  .match-clock { margin-left:auto; font-size:1rem; letter-spacing:.12em; color:var(--text); }
+  .help-link {
+    font-family:'Bebas Neue',sans-serif; font-size:0.8rem; letter-spacing:0.2em;
+    color:#a0c8ff; text-decoration:none;
+    display:flex; align-items:center; justify-content:center; gap:0.3rem;
+    flex-shrink:0; padding:0.5rem;
+    transition:color .15s; -webkit-tap-highlight-color:transparent;
+  }
+  .help-link:hover { color:#c8deff; }
+
+  /* Period */
+  .period-row { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; flex-shrink:0; }
+  .period-btn {
+    font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:.15em;
+    padding:.55rem .75rem; border-radius:3px; border:1px solid var(--line);
+    background:rgba(255,255,255,0.04); color:var(--muted);
+    cursor:pointer; transition:all .15s; -webkit-tap-highlight-color:transparent;
+  }
+
+  /* Reset modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.72); align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #0f1a0f; border: 1px solid rgba(255,80,80,0.3);
+    border-top: 3px solid #e82540;
+    border-radius: 6px; padding: 1.5rem 1.25rem 1.25rem;
+    width: min(320px, 88vw); display: flex; flex-direction: column; gap: 0.75rem;
+  }
+  .modal-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem;
+    letter-spacing: 0.2em; color: #ff6680;
+  }
+  .modal-body { font-size: 0.72rem; line-height: 1.7; color: var(--text); opacity: 0.75; }
+  .modal-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-top: 0.25rem; }
+  .modal-cancel {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.15em;
+    padding: 0.6rem; border-radius: 3px; border: 1px solid var(--line); cursor: pointer;
+    background: rgba(255,255,255,0.06); color: var(--muted);
+  }
+  .modal-confirm {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.15em;
+    padding: 0.6rem; border-radius: 3px; border: none; cursor: pointer;
+    background: var(--red); color: #ffb3b3;
+  }
+
+  /* Confirm overlay */
+  .confirm-box {
+    display: none;
+    flex-shrink: 0;
+    background: #1a0e00;
+    border: 2px solid #ffaa00;
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    gap: 0.6rem;
+    align-items: center;
+  }
+  .confirm-box.show { display: flex; }
+  .confirm-msg { flex: 1; font-size: 0.72rem; color: #ffd166; letter-spacing: 0.05em; }
+  .confirm-yes, .confirm-no {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem; letter-spacing: 0.15em;
+    padding: 0.4rem 0.9rem; border-radius: 3px; border: none; cursor: pointer;
+  }
+  .confirm-yes { background: #ffaa00; color: #000; }
+  .confirm-no  { background: rgba(255,255,255,0.08); color: var(--muted); }
+
+  /* Stats */
+  .stats-row { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; flex-shrink:0; }
+  .counter { background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:4px; padding:.75rem .5rem .6rem; text-align:center; position:relative; overflow:hidden; }
+  .counter::after { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+  .counter.success::after { background:var(--green-bright); }
+  .counter.fail::after    { background:var(--red-bright); }
+  .counter-label { font-size:.58rem; letter-spacing:.18em; text-transform:uppercase; margin-bottom:.2rem; }
+  .counter.success .counter-label { color:var(--green-bright); }
+  .counter.fail    .counter-label { color:var(--red-bright); }
+  .counter-value { font-family:'Bebas Neue',sans-serif; font-size:2.8rem; line-height:1; color:var(--text); transition:transform .1s ease; }
+  .counter-value.bump { transform:scale(1.18); }
+
+  /* Accuracy */
+  .accuracy { text-align:center; font-size:.68rem; letter-spacing:.1em; color:var(--muted); padding:.45rem .5rem; border:1px solid var(--line); border-radius:3px; flex-shrink:0; }
+  .accuracy span { color:var(--text); font-weight:500; }
+
+  /* Streak */
+  .streak-row { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; flex-shrink:0; }
+  .streak-box { background:rgba(255,255,255,0.02); border:1px solid var(--line); border-radius:3px; padding:.5rem .75rem .4rem; text-align:center; }
+  .streak-label { font-size:.58rem; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-bottom:.15rem; }
+  .streak-value { font-family:'Bebas Neue',sans-serif; font-size:1.6rem; line-height:1; }
+  .streak-box.current .streak-value { color:#7de8a0; }
+  .streak-box.best    .streak-value { color:#ffd166; }
+
+  /* Main buttons */
+  .main-btns { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; flex:1; min-height:0; }
+  .btn {
+    font-family:'Bebas Neue',sans-serif; letter-spacing:.1em; border:none; border-radius:4px;
+    cursor:pointer; position:relative; overflow:hidden;
+    transition:transform .08s ease, filter .08s ease;
+    -webkit-tap-highlight-color:transparent; user-select:none; width:100%; height:100%;
+  }
+  .btn:active { transform:scale(0.97); filter:brightness(.85); }
+  .btn-success { background:var(--green); color:#a8f0bf; font-size:3.5rem; box-shadow:0 4px 16px rgba(34,168,84,.3),inset 0 1px 0 rgba(255,255,255,.1); }
+  .btn-fail    { background:var(--red);   color:#ffb3b3; font-size:3.5rem; box-shadow:0 4px 16px rgba(232,37,64,.3),inset 0 1px 0 rgba(255,255,255,.1); }
+  .btn-poss {
+    grid-column:1/-1; height:auto;
+    background:rgba(255,255,255,0.05); color:var(--muted);
+    font-size:1rem; padding:.9rem .75rem;
+    border:1px solid var(--line); border-radius:4px; letter-spacing:.2em;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition:background .15s,color .15s,transform .08s;
+  }
+  .btn-poss:hover { background:rgba(255,255,255,.08); color:#b0c8b8; }
+
+  /* Util */
+  .util-btns { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:.6rem; flex-shrink:0; }
+  .btn-util {
+    font-family:'Bebas Neue',sans-serif; font-size:1.4rem; padding:.65rem .25rem;
+    letter-spacing:0; border-radius:3px; cursor:pointer; border:1px solid var(--line);
+    background:rgba(255,255,255,0.04); color:var(--muted);
+    transition:color .15s,background .15s,transform .08s;
+    -webkit-tap-highlight-color:transparent; user-select:none;
+    position:relative; overflow:hidden; white-space:nowrap;
+  }
+  .btn-util:active { transform:scale(.95); }
+  .btn-undo   { color:#a0c8ff; border-color:rgba(100,160,255,.15); }
+  .btn-undo:disabled { opacity:.25; cursor:not-allowed; }
+  .btn-share  { color:#80e8c0; border-color:rgba(80,200,150,.15); }
+  .btn-export { color:#c8a0ff; border-color:rgba(180,100,255,.15); }
+  .btn-clear  { color:#e87070; border-color:rgba(255,80,80,.15); }
+
+  /* Ripple */
+  .ripple { position:absolute; border-radius:50%; transform:scale(0); animation:rippleAnim .4s linear; pointer-events:none; }
+  @keyframes rippleAnim { to { transform:scale(4); opacity:0; } }
+
+  /* Toast */
+  .toast {
+    position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%);
+    background:rgba(20,40,24,.97); border:1px solid rgba(255,255,255,.12);
+    color:var(--text); font-size:.75rem; letter-spacing:.08em;
+    padding:.6rem 1.2rem; border-radius:100px;
+    opacity:0; pointer-events:none; transition:opacity .25s;
+    white-space:nowrap; z-index:100;
+  }
+  .toast.show { opacity:1; }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-dot"></div>
+    <div class="header-title">⚽ Pass Tracker</div>
+    <div class="match-clock" id="clock">00:00</div>
+  </div>
+
+  <div class="period-row">
+    <button class="period-btn" id="btn-h1" onclick="setPeriod(1)">▶ 1st <span id="clock-h1"></span></button>
+    <button class="period-btn" id="btn-h2" onclick="setPeriod(2)">▶ 2nd <span id="clock-h2"></span></button>
+  </div>
+
+  <div class="confirm-box" id="confirm-box">
+    <div class="confirm-msg">Start 2nd Half? 1st Half will be locked.</div>
+    <button class="confirm-no"  onclick="confirmHalf(false)">No</button>
+    <button class="confirm-yes" onclick="confirmHalf(true)">Yes</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="counter success"><div class="counter-label">Complete</div><div class="counter-value" id="val-s">0</div></div>
+    <div class="counter fail">   <div class="counter-label">Fail</div>    <div class="counter-value" id="val-f">0</div></div>
+  </div>
+
+  <div class="accuracy" id="accuracy-bar">Accuracy — <span>—</span></div>
+
+  <div class="streak-row">
+    <div class="streak-box current"><div class="streak-label">🔥 Streak</div><div class="streak-value" id="streak-cur">0</div></div>
+    <div class="streak-box best">  <div class="streak-label">⭐ Best</div>  <div class="streak-value" id="streak-best">0</div></div>
+  </div>
+
+  <div class="main-btns">
+    <button class="btn btn-success" onclick="count('success', this)">✓</button>
+    <button class="btn btn-fail"    onclick="count('fail', this)">✗</button>
+    <button class="btn btn-poss"    onclick="count('poss', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:2rem;height:2rem;display:block;margin:0 auto 0.3rem"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      Streak Reset
+    </button>
+  </div>
+
+  <div class="util-btns">
+    <button class="btn-util btn-undo"   id="undo-btn" onclick="undo()" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button>
+    <button class="btn-util btn-share"  onclick="share()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
+    <button class="btn-util btn-export" onclick="exportData()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+    <button class="btn-util btn-clear"  onclick="clearAll()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+  </div>
+
+<div class="modal-overlay" id="reset-modal">
+  <div class="modal">
+    <div class="modal-title">Reset All Data</div>
+    <div class="modal-body">This will delete all recorded passes and reset the clock. It cannot be undone.</div>
+    <div class="modal-btns">
+      <button class="modal-cancel"  onclick="confirmReset(false)">Cancel</button>
+      <button class="modal-confirm" onclick="confirmReset(true)">Reset</button>
+    </div>
+  </div>
+</div>
+
+<a class="help-link" href="help.html" target="_blank">HELP<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:0.7rem;height:0.7rem;opacity:0.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let s = 0, f = 0, p = 0, streak = 0, best = 0;
+  let history = [], events = [];
+  let period = null, sessionStart = null, clockInterval = null, clockOffset = 0;
+  let halfStarts = {1:null,2:null}, halfOffsets = {1:0,2:0};
+  let pendingHalf = null;
+
+  function setPeriod(n) {
+    if (period === n) return;
+    if (n === 1 && period === 2) { toast('1st Half is locked'); return; }
+    if (n === 2 && period === null) { toast('Start 1st Half first'); return; }
+    if (n === 2 && period === 1) {
+      pendingHalf = n;
+      document.getElementById('confirm-box').classList.add('show');
+      return;
+    }
+    activatePeriod(n);
+  }
+
+  function confirmHalf(yes) {
+    document.getElementById('confirm-box').classList.remove('show');
+    if (yes && pendingHalf) activatePeriod(pendingHalf);
+    pendingHalf = null;
+  }
+
+  function activatePeriod(n) {
+    if (clockInterval) {
+      clockOffset += Date.now() - sessionStart;
+      if (period) halfOffsets[period] += Date.now() - halfStarts[period];
+      clearInterval(clockInterval);
+    }
+    period = n;
+    sessionStart = Date.now();
+    halfStarts[n] = Date.now();
+    clockInterval = setInterval(tickClock, 1000);
+    tickClock();
+    updatePeriodButtons();
+    events.push({ type:'period', period:n, ts:isoNow(), elapsed:elapsedSecs() });
+    saveState();
+  }
+
+  function updatePeriodButtons() {
+    const h1 = document.getElementById('btn-h1');
+    const h2 = document.getElementById('btn-h2');
+    if (period === 1) {
+      h1.style.cssText = 'background:#00dd55;color:#000;border:3px solid #fff;';
+      h2.style.cssText = '';
+    } else if (period === 2) {
+      h1.style.cssText = 'opacity:0.3;cursor:not-allowed;';
+      h2.style.cssText = 'background:#ffaa00;color:#000;border:3px solid #fff;';
+    }
+  }
+
+  function halfElapsedSecs(h) {
+    if (!halfStarts[h]) return 0;
+    const running = period === h ? Date.now() - halfStarts[h] : 0;
+    return Math.floor((halfOffsets[h] + running) / 1000);
+  }
+
+  function tickClock() {
+    document.getElementById('clock').textContent = formatClock(elapsedSecs());
+    if (halfStarts[1]) document.getElementById('clock-h1').textContent = formatClock(halfElapsedSecs(1));
+    if (halfStarts[2]) document.getElementById('clock-h2').textContent = formatClock(halfElapsedSecs(2));
+  }
+
+  function elapsedSecs() {
+    const running = sessionStart ? Date.now() - sessionStart : 0;
+    return Math.floor((clockOffset + running) / 1000);
+  }
+
+  function formatClock(secs) {
+    return String(Math.floor(secs/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0');
+  }
+
+  function isoNow() { return new Date().toISOString(); }
+
+  // ── Audio ─────────────────────────────────────────────────────────────────
+  let _ac = null;
+  function ac() {
+    if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (_ac.state === 'suspended') _ac.resume();
+    return _ac;
+  }
+  function tone(f1, f2, type, dur, vol) {
+    try {
+      const ctx = ac(), t = ctx.currentTime;
+      const osc = ctx.createOscillator(), env = ctx.createGain();
+      osc.connect(env); env.connect(ctx.destination);
+      osc.type = type;
+      osc.frequency.setValueAtTime(f1, t);
+      osc.frequency.exponentialRampToValueAtTime(f2, t + dur * 0.5);
+      env.gain.setValueAtTime(vol, t);
+      env.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.start(t); osc.stop(t + dur);
+    } catch(e) {}
+  }
+  function soundSuccess() { tone(660, 1040, 'sine',     0.12, 0.22); }
+  function soundFail()    { tone(220,  100, 'triangle', 0.18, 0.20); }
+  function soundReset() {
+    try {
+      const ctx = ac(), t = ctx.currentTime;
+      // Hiss: white noise through a highpass filter, fading out
+      const hissDur = 0.32;
+      const buf  = ctx.createBuffer(1, ctx.sampleRate * hissDur, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      const noise = ctx.createBufferSource();
+      noise.buffer = buf;
+      const hpf = ctx.createBiquadFilter();
+      hpf.type = 'highpass';
+      hpf.frequency.value = 3800;
+      const hissEnv = ctx.createGain();
+      hissEnv.gain.setValueAtTime(0.18, t);
+      hissEnv.gain.exponentialRampToValueAtTime(0.001, t + hissDur);
+      noise.connect(hpf); hpf.connect(hissEnv); hissEnv.connect(ctx.destination);
+      noise.start(t); noise.stop(t + hissDur);
+    } catch(e) {}
+  }
+
+  const STORAGE_KEY = 'passTrackerState';
+
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(
+      { s, f, p, streak, best, history, events, period, clockOffset, sessionStart, halfStarts, halfOffsets }
+    ));
+  }
+
+  function loadState() {
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return; }
+    if (!saved) return;
+    s           = saved.s           ?? 0;
+    f           = saved.f           ?? 0;
+    p           = saved.p           ?? 0;
+    streak      = saved.streak      ?? 0;
+    best        = saved.best        ?? 0;
+    history     = saved.history     ?? [];
+    events      = saved.events      ?? [];
+    period      = saved.period      ?? null;
+    clockOffset = saved.clockOffset ?? 0;
+    sessionStart= saved.sessionStart?? null;
+    halfStarts  = saved.halfStarts  ?? {1:null, 2:null};
+    halfOffsets = saved.halfOffsets ?? {1:0, 2:0};
+    update();
+    if (period) { updatePeriodButtons(); tickClock(); clockInterval = setInterval(tickClock, 1000); }
+  }
+
+  function count(type, btn) {
+    if (type === 'success') soundSuccess();
+    else if (type === 'fail') soundFail();
+    else if (type === 'poss') soundReset();
+    history.push({ s, f, p, streak, best, events:[...events] });
+    const ev = { type, period:period||'unset', ts:isoNow(), elapsed:elapsedSecs(), elapsedFormatted:formatClock(elapsedSecs()), streakBefore:streak };
+    if (type==='success') { s++; streak++; if (streak>best) best=streak; }
+    else if (type==='fail') { f++; streak=0; }
+    else { p++; streak=0; }
+    ev.streakAfter = streak;
+    ev.runningAccuracy = (s+f) ? Math.round((s/(s+f))*100) : null;
+    events.push(ev);
+    update();
+    saveState();
+    bump(type==='success'?'val-s':'val-f');
+    ripple(btn, type==='success'?'rgba(100,255,150,0.35)':type==='fail'?'rgba(255,80,80,0.35)':'rgba(240,160,0,0.35)');
+  }
+
+  function undo() {
+    if (!history.length) return;
+    ({ s, f, p, streak, best, events } = history.pop());
+    update();
+    saveState();
+  }
+
+  function clearAll() {
+    if (!events.length) return;
+    document.getElementById('reset-modal').classList.add('show');
+  }
+
+  function confirmReset(yes) {
+    document.getElementById('reset-modal').classList.remove('show');
+    if (!yes) return;
+    history=[]; events=[];
+    s=0; f=0; p=0; streak=0; best=0;
+    clockOffset=0; sessionStart=null; period=null;
+    halfStarts={1:null,2:null}; halfOffsets={1:0,2:0};
+    if (clockInterval) { clearInterval(clockInterval); clockInterval=null; }
+    document.getElementById('clock').textContent='00:00';
+    document.getElementById('clock-h1').textContent='';
+    document.getElementById('clock-h2').textContent='';
+    document.getElementById('btn-h1').style.cssText='';
+    document.getElementById('btn-h2').style.cssText='';
+    update();
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  function confirmHalf(yes) {
+    document.getElementById('confirm-box').classList.remove('show');
+    if (!yes) { pendingHalf = null; return; }
+    if (pendingHalf) activatePeriod(pendingHalf);
+    pendingHalf = null;
+  }
+
+  function exportData() {
+    if (!events.length) { toast('No data to export yet'); return; }
+    const total = s+f;
+    const summary = { complete:s, fail:f, lostPossession:p, total, accuracy:total?Math.round(s/total*100)+'%':'—', bestStreak:best, duration:formatClock(elapsedSecs()) };
+    const csvRows = [
+      ['#','type','period','timestamp','elapsed_sec','elapsed_fmt','streak_before','streak_after','running_accuracy_pct'],
+      ...events.filter(e=>e.type!=='period').map((e,i)=>[i+1,e.type,e.period,e.ts,e.elapsed,e.elapsedFormatted,e.streakBefore??'',e.streakAfter??'',e.runningAccuracy??''])
+    ].map(r=>r.join(',')).join('\n');
+    const jsonData = JSON.stringify({ summary, events }, null, 2);
+    // Can't use confirm() in iframe — default to JSON, toggle via toast action
+    const blob = new Blob([jsonData], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download=`pass-tracker-${new Date().toISOString().slice(0,10)}.json`;
+    a.click(); URL.revokeObjectURL(url);
+    toast('Exported as JSON');
+  }
+
+  function share() {
+    const total = s+f;
+    const text =
+`⚽ Pass Tracker Stats
+──────────────────
+✅ Complete:  ${s}
+❌ Fail:      ${f}
+⚠️  Lost Poss: ${p}
+🎯 Accuracy:  ${total?Math.round(s/total*100)+'%':'—'}
+🔥 Streak:    ${streak}
+⭐ Best:      ${best}
+⏱ Duration:  ${formatClock(elapsedSecs())}`;
+    if (navigator.share) {
+      navigator.share({ text }).catch(()=>{});
+    } else {
+      navigator.clipboard.writeText(text).then(()=>toast('Stats copied!')).catch(()=>toast('Could not copy'));
+    }
+  }
+
+  function update() {
+    document.getElementById('val-s').textContent = s;
+    document.getElementById('val-f').textContent = f;
+    document.getElementById('streak-cur').textContent = streak;
+    document.getElementById('streak-best').textContent = best;
+    document.getElementById('undo-btn').disabled = history.length===0;
+    const total = s+f;
+    const acc = document.getElementById('accuracy-bar');
+    acc.innerHTML = total
+      ? `Accuracy — <span>${Math.round(s/total*100)}%</span> &nbsp;·&nbsp; ${total} passes${p?` &nbsp;·&nbsp; ${p} lost poss.`:''}`
+      : 'Accuracy — <span>—</span>';
+  }
+
+  function bump(id) {
+    const el = document.getElementById(id);
+    el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+    setTimeout(()=>el.classList.remove('bump'),150);
+  }
+
+  function ripple(btn, color) {
+    const r = document.createElement('span'); r.className='ripple';
+    const sz = Math.max(btn.offsetWidth,btn.offsetHeight)*2;
+    r.style.cssText=`width:${sz}px;height:${sz}px;left:${btn.offsetWidth/2-sz/2}px;top:${btn.offsetHeight/2-sz/2}px;background:${color}`;
+    btn.appendChild(r); setTimeout(()=>r.remove(),500);
+  }
+
+  loadState();
+
+  let toastTimer;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent=msg; el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(()=>el.classList.remove('show'),2500);
+  }
+</script>
+</body>
+</html>
