@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { initialState, recordPass } = require('../gameState.js');
+const { initialState, recordPass, undoLast } = require('../gameState.js');
 
 describe('initialState', () => {
   it('returns zeroed state with empty arrays', () => {
@@ -93,5 +93,32 @@ describe('recordPass', () => {
     const snap = s1.history[0];
     assert.equal(snap.complete, 0);
     assert.equal('history' in snap, false);
+  });
+});
+
+describe('undoLast', () => {
+  it('restores previous counters and events', () => {
+    let s = initialState();
+    s = recordPass(s, 'success', 1, 'ts');
+    s = recordPass(s, 'success', 2, 'ts');
+    const restored = undoLast(s);
+    assert.equal(restored.complete, 1);
+    assert.equal(restored.streak, 1);
+    assert.equal(restored.events.length, 1);
+  });
+
+  it('history shrinks by one after undo', () => {
+    let s = initialState();
+    s = recordPass(s, 'success', 1, 'ts');
+    s = recordPass(s, 'fail', 2, 'ts');
+    assert.equal(s.history.length, 2);
+    const s2 = undoLast(s);
+    assert.equal(s2.history.length, 1);
+  });
+
+  it('no-op on empty history', () => {
+    const s = initialState();
+    const s2 = undoLast(s);
+    assert.equal(s2, s);
   });
 });

@@ -81,5 +81,11 @@
     };
   }
 
-  return { initialState, recordPass };
+  function undoLast(state) {
+    if (state.history.length === 0) return state;
+    const snap = state.history[state.history.length - 1];
+    return { ...snap, history: state.history.slice(0, -1) };
+  }
+
+  return { initialState, recordPass, undoLast };
 }));
