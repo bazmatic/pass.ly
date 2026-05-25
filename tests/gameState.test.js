@@ -121,6 +121,34 @@ describe('undoLast', () => {
     const s2 = undoLast(s);
     assert.equal(s2, s);
   });
+
+  it('restores fail and streak after undoing a fail', () => {
+    let s = initialState();
+    s = recordPass(s, 'success', 1, 'ts');
+    s = recordPass(s, 'success', 2, 'ts');
+    s = recordPass(s, 'fail', 3, 'ts');
+    assert.equal(s.fail, 1);
+    assert.equal(s.streak, 0);
+    const s2 = undoLast(s);
+    assert.equal(s2.fail, 0);
+    assert.equal(s2.streak, 2);
+    assert.equal(s2.complete, 2);
+    assert.equal(s2.events.length, 2);
+  });
+
+  it('multiple consecutive undos restore state correctly', () => {
+    let s = initialState();
+    s = recordPass(s, 'success', 1, 'ts');
+    s = recordPass(s, 'success', 2, 'ts');
+    s = recordPass(s, 'fail', 3, 'ts');
+    s = undoLast(s); // undo fail
+    s = undoLast(s); // undo second success
+    assert.equal(s.complete, 1);
+    assert.equal(s.fail, 0);
+    assert.equal(s.streak, 1);
+    assert.equal(s.events.length, 1);
+    assert.equal(s.history.length, 1);
+  });
 });
 
 describe('activatePeriod', () => {
