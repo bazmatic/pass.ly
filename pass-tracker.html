@@ -28,7 +28,7 @@
   .header-dot { width: 8px; height: 8px; background: var(--green-bright); border-radius: 50%; animation: pulse 2s ease-in-out infinite; flex-shrink: 0; }
   @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
   .header-title { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:.25em; color:var(--muted); }
-  .match-clock { margin-left:auto; font-size:1rem; letter-spacing:.12em; color:var(--text); }
+  .match-clock { font-size:1rem; letter-spacing:.12em; color:var(--text); }
   .help-link {
     font-family:'Bebas Neue',sans-serif; font-size:0.8rem; letter-spacing:0.2em;
     color:#a0c8ff; text-decoration:none;
@@ -128,6 +128,48 @@
   .streak-box.current .streak-value { color:#7de8a0; }
   .streak-box.best    .streak-value { color:#ffd166; }
 
+  /* Score display */
+  .match-score {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem; letter-spacing: 0.1em;
+    color: var(--text);
+    margin-left: auto;
+  }
+  .match-score + .match-clock { margin-left: 0.75rem; }
+
+  /* Goal buttons */
+  .goal-btns {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 0.6rem; flex-shrink: 0;
+  }
+  .btn-goal {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.15em;
+    padding: 0.5rem 0.5rem; border-radius: 3px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; user-select: none;
+    transition: color 0.15s, background 0.15s, transform 0.08s;
+  }
+  .btn-goal:active { transform: scale(0.95); }
+  .btn-goal-for {
+    background: rgba(34,168,84,0.08); color: var(--green-bright);
+    border: 1px solid rgba(34,168,84,0.25);
+  }
+  .btn-goal-against {
+    background: rgba(232,37,64,0.08); color: var(--red-bright);
+    border: 1px solid rgba(232,37,64,0.25);
+  }
+
+  /* Diamond trail shape for goals */
+  .trail-dot.goal_for,
+  .trail-dot.goal_against {
+    border-radius: 2px;
+    transform: rotate(45deg);
+    width: 9px; height: 9px;
+  }
+  .trail-dot.goal_for    { background: var(--green-bright); box-shadow: 0 0 5px rgba(34,168,84,0.5); }
+  .trail-dot.goal_against { background: var(--red-bright);  box-shadow: 0 0 5px rgba(232,37,64,0.5); }
+  .trail-dot.goal_for.new,
+  .trail-dot.goal_against.new { animation: dotPop 0.2s ease; }
+
   /* Main buttons */
   .main-btns { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; flex:1; min-height:0; }
   .btn {
@@ -202,6 +244,7 @@
   <div class="header">
     <div class="header-dot"></div>
     <div class="header-title">⚽ Pass Tracker</div>
+    <div class="match-score" id="match-score">0 – 0</div>
     <div class="match-clock" id="clock">00:00</div>
   </div>
 
@@ -236,6 +279,11 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:2rem;height:2rem;display:block;margin:0 auto 0.3rem"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
       Streak Reset
     </button>
+  </div>
+
+  <div class="goal-btns">
+    <button class="btn-goal btn-goal-for"     onclick="recordGoal('goal_for',    this)">⚽ FOR</button>
+    <button class="btn-goal btn-goal-against" onclick="recordGoal('goal_against', this)">⚽ AGT</button>
   </div>
 
   <div class="util-btns">
@@ -381,7 +429,11 @@
     if (!saved) return;
     if (saved.complete === undefined) { localStorage.removeItem(STORAGE_KEY); return; }
     const { sessionStart, clockOffset, halfStarts, halfOffsets, ...stateFields } = saved;
-    state = stateFields;
+    state = {
+      goalsFor:     0,
+      goalsAgainst: 0,
+      ...stateFields,
+    };
     clock = {
       sessionStart: sessionStart ?? null,
       clockOffset:  clockOffset  ?? 0,
@@ -409,6 +461,13 @@
     state = GameState.undoLast(state);
     render();
     saveState();
+  }
+
+  function recordGoal(type, btn) {
+    state = GameState.recordPass(state, type, elapsedSecs(), isoNow());
+    render();
+    saveState();
+    ripple(btn, type === 'goal_for' ? 'rgba(34,168,84,0.35)' : 'rgba(232,37,64,0.35)');
   }
 
   function clearAll() {
@@ -441,9 +500,19 @@
 
   function exportData() {
     if (!state.events.length) { toast('No data to export yet'); return; }
-    const { complete, fail, poss, best } = state;
+    const { complete, fail, poss, best, goalsFor, goalsAgainst } = state;
     const total = complete + fail;
-    const summary = { complete, fail, lostPossession: poss, total, accuracy: total ? Math.round(complete / total * 100) + '%' : '—', bestStreak: best, duration: formatClock(elapsedSecs()) };
+    const summary = {
+      complete,
+      fail,
+      lostPossession: poss,
+      total,
+      accuracy: total ? Math.round(complete / total * 100) + '%' : '—',
+      bestStreak: best,
+      goalsFor,
+      goalsAgainst,
+      duration: formatClock(elapsedSecs()),
+    };
     const jsonData = JSON.stringify({ summary, events: state.events }, null, 2);
     const blob = new Blob([jsonData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -454,7 +523,7 @@
   }
 
   function share() {
-    const { complete, fail, poss, streak, best } = state;
+    const { complete, fail, poss, streak, best, goalsFor, goalsAgainst } = state;
     const total = complete + fail;
     const text =
 `⚽ Pass Tracker Stats
@@ -465,6 +534,7 @@
 🎯 Accuracy:  ${total ? Math.round(complete / total * 100) + '%' : '—'}
 🔥 Streak:    ${streak}
 ⭐ Best:      ${best}
+⚽ Score:     ${goalsFor} – ${goalsAgainst}
 ⏱ Duration:  ${formatClock(elapsedSecs())}`;
     if (navigator.share) {
       navigator.share({ text }).catch(() => {});
@@ -477,7 +547,10 @@
   let _trailLen = 0;
 
   function renderTrail() {
-    const passEvents = state.events.filter(e => e.type === 'success' || e.type === 'fail' || e.type === 'poss');
+    const passEvents = state.events.filter(e =>
+      e.type === 'success' || e.type === 'fail' || e.type === 'poss' ||
+      e.type === 'goal_for' || e.type === 'goal_against'
+    );
     const recent = passEvents.slice(-TRAIL_SIZE);
     const trail = document.getElementById('pass-trail');
     const isNew = recent.length > _trailLen;
@@ -499,6 +572,8 @@
     acc.innerHTML = total
       ? `Accuracy — <span>${Math.round(state.complete / total * 100)}%</span> &nbsp;·&nbsp; ${total} passes${state.poss ? ` &nbsp;·&nbsp; ${state.poss} lost poss.` : ''}`
       : 'Accuracy — <span>—</span>';
+    document.getElementById('match-score').textContent =
+      state.goalsFor + ' – ' + state.goalsAgainst;
     renderTrail();
   }
 
