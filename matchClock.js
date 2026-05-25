@@ -12,5 +12,25 @@
     };
   }
 
-  return { initialClock };
+  function startPeriod(clock, outgoing, n, now) {
+    let newClockOffset   = clock.clockOffset;
+    const newHalfOffsets = { ...clock.halfOffsets };
+
+    if (clock.sessionStart !== null) {
+      newClockOffset += now - clock.sessionStart;
+      if (outgoing !== null) {
+        newHalfOffsets[outgoing] += now - clock.halfStarts[outgoing];
+      }
+    }
+
+    return {
+      ...clock,
+      sessionStart: now,
+      clockOffset:  newClockOffset,
+      halfStarts:   { ...clock.halfStarts, [n]: now },
+      halfOffsets:  newHalfOffsets,
+    };
+  }
+
+  return { initialClock, startPeriod };
 }));
