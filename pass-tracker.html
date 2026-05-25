@@ -245,9 +245,9 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="gameState.js"></script>
 <script>
-  let s = 0, f = 0, p = 0, streak = 0, best = 0;
-  let history = [], events = [];
+  let state = GameState.initialState();
   let period = null, sessionStart = null, clockInterval = null, clockOffset = 0;
   let halfStarts = {1:null,2:null}, halfOffsets = {1:0,2:0};
   let pendingHalf = null, htActive = false;
@@ -396,7 +396,7 @@
     halfStarts  = saved.halfStarts  ?? {1:null, 2:null};
     halfOffsets = saved.halfOffsets ?? {1:0, 2:0};
     htActive    = saved.htActive    ?? false;
-    update();
+    render();
     if (htActive) document.getElementById('btn-ht').classList.add('active');
     if (period) { updatePeriodButtons(); tickClock(); clockInterval = setInterval(tickClock, 1000); }
   }
@@ -405,29 +405,22 @@
     if (type === 'success') soundSuccess();
     else if (type === 'fail') soundFail();
     else if (type === 'poss') soundReset();
-    history.push({ s, f, p, streak, best, events:[...events] });
-    const ev = { type, period:period||'unset', ts:isoNow(), elapsed:elapsedSecs(), elapsedFormatted:formatClock(elapsedSecs()), streakBefore:streak };
-    if (type==='success') { s++; streak++; if (streak>best) best=streak; }
-    else if (type==='fail') { f++; streak=0; }
-    else { p++; streak=0; }
-    ev.streakAfter = streak;
-    ev.runningAccuracy = (s+f) ? Math.round((s/(s+f))*100) : null;
-    events.push(ev);
-    update();
+    state = GameState.recordPass(state, type, elapsedSecs(), isoNow());
+    render();
     saveState();
-    bump(type==='success'?'val-s':'val-f');
-    ripple(btn, type==='success'?'rgba(100,255,150,0.35)':type==='fail'?'rgba(255,80,80,0.35)':'rgba(240,160,0,0.35)');
+    bump(type === 'success' ? 'val-s' : 'val-f');
+    ripple(btn, type === 'success' ? 'rgba(100,255,150,0.35)' : type === 'fail' ? 'rgba(255,80,80,0.35)' : 'rgba(240,160,0,0.35)');
   }
 
   function undo() {
-    if (!history.length) return;
-    ({ s, f, p, streak, best, events } = history.pop());
-    update();
+    if (!state.history.length) return;
+    state = GameState.undoLast(state);
+    render();
     saveState();
   }
 
   function clearAll() {
-    if (!events.length) return;
+    if (!state.events.length) return;
     document.getElementById('reset-modal').classList.add('show');
   }
 
@@ -445,7 +438,7 @@
     document.getElementById('clock-h2').textContent='';
     document.getElementById('btn-h1').style.cssText='';
     document.getElementById('btn-h2').style.cssText='';
-    update();
+    render();
     localStorage.removeItem(STORAGE_KEY);
   }
 
@@ -493,16 +486,16 @@
     }
   }
 
-  function update() {
-    document.getElementById('val-s').textContent = s;
-    document.getElementById('val-f').textContent = f;
-    document.getElementById('streak-cur').textContent = streak;
-    document.getElementById('streak-best').textContent = best;
-    document.getElementById('undo-btn').disabled = history.length===0;
-    const total = s+f;
+  function render() {
+    document.getElementById('val-s').textContent  = state.complete;
+    document.getElementById('val-f').textContent  = state.fail;
+    document.getElementById('streak-cur').textContent  = state.streak;
+    document.getElementById('streak-best').textContent = state.best;
+    document.getElementById('undo-btn').disabled = state.history.length === 0;
+    const total = state.complete + state.fail;
     const acc = document.getElementById('accuracy-bar');
     acc.innerHTML = total
-      ? `Accuracy — <span>${Math.round(s/total*100)}%</span> &nbsp;·&nbsp; ${total} passes${p?` &nbsp;·&nbsp; ${p} lost poss.`:''}`
+      ? `Accuracy — <span>${Math.round(state.complete / total * 100)}%</span> &nbsp;·&nbsp; ${total} passes${state.poss ? ` &nbsp;·&nbsp; ${state.poss} lost poss.` : ''}`
       : 'Accuracy — <span>—</span>';
   }
 
