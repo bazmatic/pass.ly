@@ -265,38 +265,68 @@ const streakPlugin = {
   }
 };
 
-function renderStats(data) {
-  const { summary, events } = data;
+function prepareStats(data) {
+  const { summary, events = [] } = data;
 
-  document.getElementById('s-complete').textContent = summary.complete;
-  document.getElementById('s-fail').textContent     = summary.fail;
-document.getElementById('s-accuracy').textContent = summary.accuracy;
-  document.getElementById('s-streak').textContent   = summary.bestStreak;
-  document.getElementById('s-duration').textContent = summary.duration;
+  const passEvents   = events.filter(e => e.type === 'success' || e.type === 'fail');
+  const p2Mark       = events.filter(e => e.type === 'period').find(e => e.period === 2) ?? null;
+  const p2Idx        = p2Mark ? passEvents.findIndex(e => e.elapsed >= p2Mark.elapsed) : -1;
+  const htStart      = events.find(e => e.type === 'halftime' && e.phase === 'start') ?? null;
+  const htEnd        = events.find(e => e.type === 'halftime' && e.phase === 'end')   ?? null;
+  const bestStreakLen = summary.bestStreak ?? 0;
+  const streak       = bestStreakLen > 0 ? findBestStreak(passEvents, bestStreakLen) : null;
+  const cumData      = passEvents.map(e => e.runningAccuracy);
+  const slideData    = slidingAccuracy(passEvents);
+  const step         = Math.max(1, Math.floor(passEvents.length / 18));
+  const labels       = passEvents.map((e, i) => i % step === 0 ? e.elapsedFormatted : '');
+
+  const p1    = passEvents.filter(e => e.period === 1);
+  const p2    = passEvents.filter(e => e.period === 2);
+  const midOf = arr => {
+    if (!arr.length) return 0;
+    const ts = arr.map(e => e.elapsed);
+    return (Math.min(...ts) + Math.max(...ts)) / 2;
+  };
+  const p1Mid = midOf(p1), p2Mid = midOf(p2);
+  const makeQ = evs => {
+    const ok = evs.filter(e => e.type === 'success').length;
+    const fail = evs.filter(e => e.type === 'fail').length;
+    const total = ok + fail;
+    return { ok, fail, total, pct: total ? Math.round(ok / total * 100) : 0 };
+  };
+
+  return {
+    stats:    { complete: summary.complete ?? 0, fail: summary.fail ?? 0, accuracy: summary.accuracy ?? '—', bestStreak: summary.bestStreak ?? 0, duration: summary.duration ?? '—' },
+    accuracy: { passEvents, cumData, slideData, labels, p2Idx, streak, bestStreakLen },
+    timeline: { passEvents, p2Mark, htStart, htEnd },
+    quarters: {
+      q1: makeQ(p1.filter(e => e.elapsed <= p1Mid)),
+      q2: makeQ(p1.filter(e => e.elapsed >  p1Mid)),
+      q3: makeQ(p2.filter(e => e.elapsed <= p2Mid)),
+      q4: makeQ(p2.filter(e => e.elapsed >  p2Mid)),
+    },
+  };
+}
+
+function renderStats(data) {
+  const prepared = prepareStats(data);
+
+  document.getElementById('s-complete').textContent = prepared.stats.complete;
+  document.getElementById('s-fail').textContent     = prepared.stats.fail;
+  document.getElementById('s-accuracy').textContent = prepared.stats.accuracy;
+  document.getElementById('s-streak').textContent   = prepared.stats.bestStreak;
+  document.getElementById('s-duration').textContent = prepared.stats.duration;
 
   document.getElementById('drop-zone').style.display = 'none';
   document.getElementById('btn-reload').style.display = '';
   document.getElementById('content').style.display = 'block';
 
-  const passEvents  = events.filter(e => e.type === 'success' || e.type === 'fail');
-  const periodMarks = events.filter(e => e.type === 'period');
-  const p2Mark      = periodMarks.find(e => e.period === 2);
-  const p2Idx       = p2Mark ? passEvents.findIndex(e => e.elapsed >= p2Mark.elapsed) : -1;
-
-  renderAccuracyChart(passEvents, p2Idx, summary.bestStreak);
-  renderPassTimeline(events, p2Mark);
-
-  const p1 = passEvents.filter(e => e.period === 1);
-  const p2 = passEvents.filter(e => e.period === 2);
-  const midOf = arr => {
-    const ts = arr.map(e => e.elapsed);
-    return (Math.min(...ts) + Math.max(...ts)) / 2;
-  };
-  const p1Mid = midOf(p1), p2Mid = midOf(p2);
-  renderPieChart('chart-q1', p1.filter(e => e.elapsed <= p1Mid));
-  renderPieChart('chart-q2', p1.filter(e => e.elapsed >  p1Mid));
-  renderPieChart('chart-q3', p2.filter(e => e.elapsed <= p2Mid));
-  renderPieChart('chart-q4', p2.filter(e => e.elapsed >  p2Mid));
+  renderAccuracyChart(prepared.accuracy);
+  renderPassTimeline(prepared.timeline);
+  renderPieChart('chart-q1', prepared.quarters.q1);
+  renderPieChart('chart-q2', prepared.quarters.q2);
+  renderPieChart('chart-q3', prepared.quarters.q3);
+  renderPieChart('chart-q4', prepared.quarters.q4);
 }
 
 const WINDOW = 15; // sliding window size
@@ -310,15 +340,9 @@ function slidingAccuracy(passEvents) {
   });
 }
 
-function renderAccuracyChart(passEvents, p2Idx, bestStreakLen) {
-  const streak = findBestStreak(passEvents, bestStreakLen);
+function renderAccuracyChart({ passEvents, cumData, slideData, labels, p2Idx, streak, bestStreakLen }) {
   const ctx = document.getElementById('chart-accuracy').getContext('2d');
   if (charts.accuracy) charts.accuracy.destroy();
-
-  const step      = Math.max(1, Math.floor(passEvents.length / 18));
-  const labels    = passEvents.map((e, i) => i % step === 0 ? e.elapsedFormatted : '');
-  const cumData   = passEvents.map(e => e.runningAccuracy);
-  const slideData = slidingAccuracy(passEvents);
 
   charts.accuracy = new Chart(ctx, {
     type: 'line',
@@ -381,13 +405,17 @@ function renderAccuracyChart(passEvents, p2Idx, bestStreakLen) {
 
 // ── Per-pass canvas timeline ──────────────────────────────────────────────────
 
-let _tlEvents = null;
-let _tlP2Mark = null;
-let _tlRO     = null;
+let _tlEvents  = null;
+let _tlP2Mark  = null;
+let _tlHtStart = null;
+let _tlHtEnd   = null;
+let _tlRO      = null;
 
-function renderPassTimeline(allEvents, p2Mark) {
-  _tlEvents = allEvents;
-  _tlP2Mark = p2Mark;
+function renderPassTimeline({ passEvents, p2Mark, htStart, htEnd }) {
+  _tlEvents  = passEvents;
+  _tlP2Mark  = p2Mark;
+  _tlHtStart = htStart;
+  _tlHtEnd   = htEnd;
 
   const canvas  = document.getElementById('chart-timeline');
   const tooltip = document.getElementById('tl-tooltip');
@@ -416,7 +444,7 @@ function tlGeom(canvas) {
   const W  = canvas.getBoundingClientRect().width || canvas.offsetWidth;
   const tw = W - TL.PL - TL.PR;
   const th = TL.H - TL.PT - TL.PB;
-  const evs = (_tlEvents || []).filter(e => e.type === 'success' || e.type === 'fail');
+  const evs = _tlEvents || [];
   const maxT = evs.length ? Math.max(...evs.map(e => e.elapsed)) : 1;
   const xOf  = sec => TL.PL + (sec / maxT) * tw;
   return { W, tw, th, evs, maxT, xOf };
@@ -453,6 +481,27 @@ function drawTL(canvas, hitIdx) {
   ctx.fillRect(TL.PL, ty, htX - TL.PL, th);
   ctx.fillStyle = 'rgba(34,168,84,0.03)';
   ctx.fillRect(htX, ty, TL.PL + tw - htX, th);
+
+  // Halftime band
+  if (_tlHtStart && _tlHtEnd) {
+    const hx1 = xOf(_tlHtStart.elapsed);
+    const hx2 = xOf(_tlHtEnd.elapsed);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(hx1, ty, hx2 - hx1, th);
+    ctx.strokeStyle = 'rgba(240,160,0,0.45)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    [hx1, hx2].forEach(x => {
+      ctx.beginPath(); ctx.moveTo(x, ty); ctx.lineTo(x, ty + th); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    if (hx2 - hx1 > 28) {
+      ctx.fillStyle = 'rgba(240,160,0,0.55)';
+      ctx.font = `8px 'DM Mono', monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText('HALF TIME', (hx1 + hx2) / 2, ty + th / 2 + 3);
+    }
+  }
 
   // Track border
   ctx.strokeStyle = 'rgba(255,255,255,0.07)';
@@ -568,14 +617,9 @@ function showTLTooltip(canvas, tooltip, hitIdx) {
   tooltip.style.display = 'block';
 }
 
-function renderPieChart(id, events) {
+function renderPieChart(id, { ok, fail, total, pct }) {
   const ctx = document.getElementById(id).getContext('2d');
   if (charts[id]) charts[id].destroy();
-
-  const ok   = events.filter(e => e.type === 'success').length;
-  const fail = events.filter(e => e.type === 'fail').length;
-  const total = ok + fail;
-  const pct = total ? Math.round(ok / total * 100) : 0;
 
   charts[id] = new Chart(ctx, {
     type: 'doughnut',
