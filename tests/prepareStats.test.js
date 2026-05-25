@@ -206,7 +206,7 @@ describe('prepareStats empty events', () => {
 });
 
 // ---------------------------------------------------------------------------
-// prepareStats — old export without streakBefore/streakAfter → streak is null
+// prepareStats — streakAfter values never reach bestStreak length → streak is null
 // ---------------------------------------------------------------------------
 
 describe('prepareStats old export format', () => {
