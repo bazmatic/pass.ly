@@ -39,13 +39,20 @@
   .help-link:hover { color:#c8deff; }
 
   /* Period */
-  .period-row { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; flex-shrink:0; }
+  .period-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.6rem; flex-shrink:0; }
   .period-btn {
     font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:.15em;
     padding:.55rem .75rem; border-radius:3px; border:1px solid var(--line);
     background:rgba(255,255,255,0.04); color:var(--muted);
     cursor:pointer; transition:all .15s; -webkit-tap-highlight-color:transparent;
   }
+  .btn-ht {
+    font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:.15em;
+    padding:.55rem .5rem; border-radius:3px; border:1px solid rgba(240,160,0,0.2);
+    background:rgba(240,160,0,0.06); color:rgba(240,160,0,0.5);
+    cursor:pointer; transition:all .15s; -webkit-tap-highlight-color:transparent;
+  }
+  .btn-ht.active { background:#f0a000; color:#000; border-color:#f0a000; }
 
   /* Reset modal */
   .modal-overlay {
@@ -185,6 +192,7 @@
 
   <div class="period-row">
     <button class="period-btn" id="btn-h1" onclick="setPeriod(1)">▶ 1st <span id="clock-h1"></span></button>
+    <button class="btn-ht" id="btn-ht" onclick="toggleHT()">HT</button>
     <button class="period-btn" id="btn-h2" onclick="setPeriod(2)">▶ 2nd <span id="clock-h2"></span></button>
   </div>
 
@@ -242,7 +250,7 @@
   let history = [], events = [];
   let period = null, sessionStart = null, clockInterval = null, clockOffset = 0;
   let halfStarts = {1:null,2:null}, halfOffsets = {1:0,2:0};
-  let pendingHalf = null;
+  let pendingHalf = null, htActive = false;
 
   function setPeriod(n) {
     if (period === n) return;
@@ -260,6 +268,13 @@
     document.getElementById('confirm-box').classList.remove('show');
     if (yes && pendingHalf) activatePeriod(pendingHalf);
     pendingHalf = null;
+  }
+
+  function toggleHT() {
+    htActive = !htActive;
+    document.getElementById('btn-ht').classList.toggle('active', htActive);
+    events.push({ type:'halftime', phase: htActive ? 'start' : 'end', ts:isoNow(), elapsed:elapsedSecs() });
+    saveState();
   }
 
   function activatePeriod(n) {
@@ -360,7 +375,7 @@
 
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(
-      { s, f, p, streak, best, history, events, period, clockOffset, sessionStart, halfStarts, halfOffsets }
+      { s, f, p, streak, best, history, events, period, clockOffset, sessionStart, halfStarts, halfOffsets, htActive }
     ));
   }
 
@@ -380,7 +395,9 @@
     sessionStart= saved.sessionStart?? null;
     halfStarts  = saved.halfStarts  ?? {1:null, 2:null};
     halfOffsets = saved.halfOffsets ?? {1:0, 2:0};
+    htActive    = saved.htActive    ?? false;
     update();
+    if (htActive) document.getElementById('btn-ht').classList.add('active');
     if (period) { updatePeriodButtons(); tickClock(); clockInterval = setInterval(tickClock, 1000); }
   }
 
@@ -420,7 +437,8 @@
     history=[]; events=[];
     s=0; f=0; p=0; streak=0; best=0;
     clockOffset=0; sessionStart=null; period=null;
-    halfStarts={1:null,2:null}; halfOffsets={1:0,2:0};
+    halfStarts={1:null,2:null}; halfOffsets={1:0,2:0}; htActive=false;
+    document.getElementById('btn-ht').classList.remove('active');
     if (clockInterval) { clearInterval(clockInterval); clockInterval=null; }
     document.getElementById('clock').textContent='00:00';
     document.getElementById('clock-h1').textContent='';
