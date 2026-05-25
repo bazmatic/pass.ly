@@ -1,0 +1,8 @@
+{
+  "name": "passing-stats",
+  "version": "1.0.0",
+  "description": "Pass tracker stats viewer",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}
