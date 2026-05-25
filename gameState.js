@@ -17,5 +17,69 @@
     };
   }
 
-  return { initialState };
+  function formatClock(secs) {
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  function recordPass(state, type, elapsed, ts) {
+    // Save snapshot of current state (without history)
+    const { history: _, ...snap } = state;
+    const newHistory = [...state.history, snap];
+
+    // Compute streak before this pass
+    const streakBefore = state.streak;
+
+    // Apply mutations based on type
+    let newComplete = state.complete;
+    let newFail = state.fail;
+    let newPoss = state.poss;
+    let newStreak = state.streak;
+    let newBest = state.best;
+
+    if (type === 'success') {
+      newComplete += 1;
+      newStreak += 1;
+      if (newStreak > newBest) {
+        newBest = newStreak;
+      }
+    } else if (type === 'fail') {
+      newFail += 1;
+      newStreak = 0;
+    } else if (type === 'poss') {
+      newPoss += 1;
+      newStreak = 0;
+    }
+
+    // Compute running accuracy
+    const totalPasses = newComplete + newFail;
+    const runningAccuracy = totalPasses === 0 ? 0 : Math.round((newComplete / totalPasses) * 100);
+
+    // Create event
+    const event = {
+      type,
+      elapsed,
+      elapsedFormatted: formatClock(elapsed),
+      ts,
+      streakBefore,
+      streakAfter: newStreak,
+      runningAccuracy,
+      period: state.period,
+    };
+
+    // Return new state
+    return {
+      ...state,
+      complete: newComplete,
+      fail: newFail,
+      poss: newPoss,
+      streak: newStreak,
+      best: newBest,
+      events: [...state.events, event],
+      history: newHistory,
+    };
+  }
+
+  return { initialState, recordPass };
 }));
