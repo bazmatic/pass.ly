@@ -210,14 +210,12 @@ describe('prepareStats empty events', () => {
 // ---------------------------------------------------------------------------
 
 describe('prepareStats old export format', () => {
-  test('bestStreak > 0 but no streakAfter fields → streak is null', () => {
-    // Old format: passes lack streakBefore/streakAfter properties
+  test('bestStreak > 0 but streakAfter never reaches bestLen → streak is null', () => {
     const events = [
       makePassEvent('success', 10, '', 0, 0, 0, 1),
       makePassEvent('success', 20, '', 0, 0, 0, 1),
       makePassEvent('success', 30, '', 0, 0, 0, 1),
     ];
-    // No streakBefore/streakAfter on any event → findBestStreak returns null
     const summary = makeSummary({ bestStreak: 3 });
     const { accuracy } = prepareStats({ summary, events });
     assert.equal(accuracy.streak, null);
