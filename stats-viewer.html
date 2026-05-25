@@ -67,7 +67,7 @@
   /* Summary strip */
   .summary-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(7, 1fr);
     gap: 0.5rem;
     margin-bottom: 1rem;
   }
@@ -154,6 +154,14 @@
     <div class="stat-card c-teal">
       <div class="stat-label">Duration</div>
       <div class="stat-value" id="s-duration">—</div>
+    </div>
+    <div class="stat-card c-green">
+      <div class="stat-label">Goals For</div>
+      <div class="stat-value" id="s-goals-for">—</div>
+    </div>
+    <div class="stat-card c-red">
+      <div class="stat-label">Goals Ag.</div>
+      <div class="stat-value" id="s-goals-against">—</div>
     </div>
   </div>
 
@@ -269,6 +277,9 @@ function prepareStats(data) {
   const { summary, events = [] } = data;
 
   const passEvents   = events.filter(e => e.type === 'success' || e.type === 'fail');
+  const goalEvents   = events.filter(e => e.type === 'goal_for' || e.type === 'goal_against');
+  const goalsFor     = summary.goalsFor     ?? goalEvents.filter(e => e.type === 'goal_for').length;
+  const goalsAgainst = summary.goalsAgainst ?? goalEvents.filter(e => e.type === 'goal_against').length;
   const p2Mark       = events.filter(e => e.type === 'period').find(e => e.period === 2) ?? null;
   const p2Idx        = p2Mark ? passEvents.findIndex(e => e.elapsed >= p2Mark.elapsed) : -1;
   const htStart      = events.find(e => e.type === 'halftime' && e.phase === 'start') ?? null;
@@ -296,9 +307,18 @@ function prepareStats(data) {
   };
 
   return {
-    stats:    { complete: summary.complete ?? 0, fail: summary.fail ?? 0, accuracy: summary.accuracy ?? '—', bestStreak: summary.bestStreak ?? 0, duration: summary.duration ?? '—' },
+    stats: {
+      complete:      summary.complete   ?? 0,
+      fail:          summary.fail       ?? 0,
+      accuracy:      summary.accuracy   ?? '—',
+      bestStreak:    summary.bestStreak ?? 0,
+      duration:      summary.duration   ?? '—',
+      goalsFor,
+      goalsAgainst,
+    },
     accuracy: { passEvents, cumData, slideData, labels, p2Idx, streak, bestStreakLen },
     timeline: { passEvents, p2Mark, htStart, htEnd },
+    goals:    goalEvents,
     quarters: {
       q1: makeQ(p1.filter(e => e.elapsed <= p1Mid)),
       q2: makeQ(p1.filter(e => e.elapsed >  p1Mid)),
@@ -311,18 +331,20 @@ function prepareStats(data) {
 function renderStats(data) {
   const prepared = prepareStats(data);
 
-  document.getElementById('s-complete').textContent = prepared.stats.complete;
-  document.getElementById('s-fail').textContent     = prepared.stats.fail;
-  document.getElementById('s-accuracy').textContent = prepared.stats.accuracy;
-  document.getElementById('s-streak').textContent   = prepared.stats.bestStreak;
-  document.getElementById('s-duration').textContent = prepared.stats.duration;
+  document.getElementById('s-complete').textContent     = prepared.stats.complete;
+  document.getElementById('s-fail').textContent         = prepared.stats.fail;
+  document.getElementById('s-accuracy').textContent     = prepared.stats.accuracy;
+  document.getElementById('s-streak').textContent       = prepared.stats.bestStreak;
+  document.getElementById('s-duration').textContent     = prepared.stats.duration;
+  document.getElementById('s-goals-for').textContent    = prepared.stats.goalsFor;
+  document.getElementById('s-goals-against').textContent = prepared.stats.goalsAgainst;
 
   document.getElementById('drop-zone').style.display = 'none';
   document.getElementById('btn-reload').style.display = '';
   document.getElementById('content').style.display = 'block';
 
   renderAccuracyChart(prepared.accuracy);
-  renderPassTimeline(prepared.timeline);
+  renderPassTimeline({ ...prepared.timeline, goals: prepared.goals });
   renderPieChart('chart-q1', prepared.quarters.q1);
   renderPieChart('chart-q2', prepared.quarters.q2);
   renderPieChart('chart-q3', prepared.quarters.q3);
@@ -409,13 +431,15 @@ let _tlEvents  = null;
 let _tlP2Mark  = null;
 let _tlHtStart = null;
 let _tlHtEnd   = null;
+let _tlGoals   = null;
 let _tlRO      = null;
 
-function renderPassTimeline({ passEvents, p2Mark, htStart, htEnd }) {
+function renderPassTimeline({ passEvents, p2Mark, htStart, htEnd, goals }) {
   _tlEvents  = passEvents;
   _tlP2Mark  = p2Mark;
   _tlHtStart = htStart;
   _tlHtEnd   = htEnd;
+  _tlGoals   = goals || [];
 
   const canvas  = document.getElementById('chart-timeline');
   const tooltip = document.getElementById('tl-tooltip');
@@ -552,6 +576,28 @@ function drawTL(canvas, hitIdx) {
     ctx.setLineDash([]);
   }
 
+  // Goal markers
+  (_tlGoals || []).forEach(g => {
+    const x     = xOf(g.elapsed);
+    const isFor = g.type === 'goal_for';
+    const color = isFor ? 'rgba(34,168,84,0.85)' : 'rgba(232,37,64,0.85)';
+    const label = isFor ? 'F' : 'A';
+
+    // Short vertical tick above the track
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, ty - 8);
+    ctx.lineTo(x, ty + th);
+    ctx.stroke();
+
+    // Small label
+    ctx.fillStyle  = color;
+    ctx.font       = `bold 8px 'DM Mono', monospace`;
+    ctx.textAlign  = 'center';
+    ctx.fillText('⚽' + label, x, ty - 10);
+  });
+
   // Time axis
   ctx.fillStyle  = '#5a8c6a';
   ctx.font       = `9px 'DM Mono', monospace`;
@@ -572,6 +618,8 @@ function drawTL(canvas, hitIdx) {
   const items = [
     { color: 'rgba(34,168,84,0.7)',  label: 'Complete' },
     { color: 'rgba(232,37,64,0.65)', label: 'Failed'   },
+    { color: 'rgba(34,168,84,0.85)', label: '⚽ For'   },
+    { color: 'rgba(232,37,64,0.85)', label: '⚽ Ag.'   },
   ];
   let lx = TL.PL + tw - 4;
   ctx.font = `8px 'DM Mono', monospace`;
