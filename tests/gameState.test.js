@@ -25,6 +25,12 @@ describe('initialState', () => {
     assert.notEqual(a.events, b.events);
     assert.notEqual(a.history, b.history);
   });
+
+  it('includes goalsFor and goalsAgainst counters', () => {
+    const s = initialState();
+    assert.equal(s.goalsFor, 0);
+    assert.equal(s.goalsAgainst, 0);
+  });
 });
 
 describe('recordPass', () => {
@@ -93,6 +99,60 @@ describe('recordPass', () => {
     const snap = s1.history[0];
     assert.equal(snap.complete, 0);
     assert.equal('history' in snap, false);
+  });
+});
+
+describe('recordPass — goals', () => {
+  it('goal_for increments goalsFor and resets streak', () => {
+    let s = initialState();
+    s = recordPass(s, 'success', 1, 'ts');
+    s = recordPass(s, 'success', 2, 'ts');
+    s = recordPass(s, 'goal_for', 60, 'ts');
+    assert.equal(s.goalsFor, 1);
+    assert.equal(s.goalsAgainst, 0);
+    assert.equal(s.streak, 0);
+    assert.equal(s.complete, 2);
+    assert.equal(s.fail, 0);
+  });
+
+  it('goal_against increments goalsAgainst and resets streak', () => {
+    let s = initialState();
+    s = recordPass(s, 'success', 1, 'ts');
+    s = recordPass(s, 'goal_against', 60, 'ts');
+    assert.equal(s.goalsAgainst, 1);
+    assert.equal(s.goalsFor, 0);
+    assert.equal(s.streak, 0);
+  });
+
+  it('goal event appended with correct shape (no streakBefore/After/runningAccuracy)', () => {
+    let s = initialState();
+    s = recordPass(s, 'goal_for', 300, '2026-01-01T00:05:00Z');
+    assert.equal(s.events.length, 1);
+    const e = s.events[0];
+    assert.equal(e.type, 'goal_for');
+    assert.equal(e.elapsed, 300);
+    assert.equal(e.elapsedFormatted, '5:00');
+    assert.equal(e.ts, '2026-01-01T00:05:00Z');
+    assert.equal('streakBefore' in e, false);
+    assert.equal('runningAccuracy' in e, false);
+  });
+
+  it('goal does not affect accuracy calculation', () => {
+    let s = initialState();
+    s = recordPass(s, 'success', 1, 'ts');
+    s = recordPass(s, 'success', 2, 'ts');
+    s = recordPass(s, 'goal_for', 3, 'ts');
+    s = recordPass(s, 'success', 4, 'ts');
+    const passEvt = s.events.filter(e => e.type === 'success').pop();
+    assert.equal(passEvt.runningAccuracy, 100);
+  });
+
+  it('undo restores goalsFor counter', () => {
+    let s = initialState();
+    s = recordPass(s, 'goal_for', 60, 'ts');
+    assert.equal(s.goalsFor, 1);
+    s = undoLast(s);
+    assert.equal(s.goalsFor, 0);
   });
 });
 

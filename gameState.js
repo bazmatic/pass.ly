@@ -9,15 +9,17 @@
 
   function initialState() {
     return {
-      complete: 0,
-      fail:     0,
-      poss:     0,
-      streak:   0,
-      best:     0,
-      period:   null,
-      htActive: false,
-      events:   [],
-      history:  [],
+      complete:     0,
+      fail:         0,
+      poss:         0,
+      streak:       0,
+      best:         0,
+      goalsFor:     0,
+      goalsAgainst: 0,
+      period:       null,
+      htActive:     false,
+      events:       [],
+      history:      [],
     };
   }
 
@@ -27,11 +29,13 @@
 
     const streakBefore = state.streak;
 
-    let newComplete = state.complete;
-    let newFail     = state.fail;
-    let newPoss     = state.poss;
-    let newStreak   = state.streak;
-    let newBest     = state.best;
+    let newComplete     = state.complete;
+    let newFail         = state.fail;
+    let newPoss         = state.poss;
+    let newStreak       = state.streak;
+    let newBest         = state.best;
+    let newGoalsFor     = state.goalsFor;
+    let newGoalsAgainst = state.goalsAgainst;
 
     if (type === 'success') {
       newComplete += 1;
@@ -43,22 +47,33 @@
     } else if (type === 'poss') {
       newPoss   += 1;
       newStreak  = 0;
+    } else if (type === 'goal_for') {
+      newGoalsFor += 1;
+      newStreak    = 0;
+    } else if (type === 'goal_against') {
+      newGoalsAgainst += 1;
+      newStreak        = 0;
     }
 
-    const totalPasses    = newComplete + newFail;
+    const totalPasses     = newComplete + newFail;
     const runningAccuracy = totalPasses === 0 ? 0 : Math.round((newComplete / totalPasses) * 100);
 
-    const event = Events.makePassEvent(type, elapsed, ts, streakBefore, newStreak, runningAccuracy, state.period);
+    const isGoal = type === 'goal_for' || type === 'goal_against';
+    const event  = isGoal
+      ? Events.makeGoalEvent(type, elapsed, ts)
+      : Events.makePassEvent(type, elapsed, ts, streakBefore, newStreak, runningAccuracy, state.period);
 
     return {
       ...state,
-      complete: newComplete,
-      fail:     newFail,
-      poss:     newPoss,
-      streak:   newStreak,
-      best:     newBest,
-      events:   [...state.events, event],
-      history:  newHistory,
+      complete:     newComplete,
+      fail:         newFail,
+      poss:         newPoss,
+      streak:       newStreak,
+      best:         newBest,
+      goalsFor:     newGoalsFor,
+      goalsAgainst: newGoalsAgainst,
+      events:       [...state.events, event],
+      history:      newHistory,
     };
   }
 
