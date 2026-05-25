@@ -30,5 +30,9 @@
     return { type: 'halftime', phase, elapsed, ts };
   }
 
-  return { makePassEvent, makePeriodEvent, makeHalftimeEvent };
+  function makeGoalEvent(type, elapsed, ts) {
+    return { type, elapsed, elapsedFormatted: formatClock(elapsed), ts };
+  }
+
+  return { makePassEvent, makePeriodEvent, makeHalftimeEvent, makeGoalEvent };
 }));

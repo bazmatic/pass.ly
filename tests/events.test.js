@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { makePassEvent, makePeriodEvent, makeHalftimeEvent } = require('../events.js');
+const { makePassEvent, makePeriodEvent, makeHalftimeEvent, makeGoalEvent } = require('../events.js');
 
 describe('makePassEvent', () => {
   it('returns all expected fields', () => {
@@ -44,6 +44,31 @@ describe('makeHalftimeEvent', () => {
   it('returns a new object each call', () => {
     const a = makeHalftimeEvent('start', 0, '');
     const b = makeHalftimeEvent('start', 0, '');
+    assert.notEqual(a, b);
+  });
+});
+
+describe('makeGoalEvent', () => {
+  it('goal_for returns correct shape', () => {
+    const e = makeGoalEvent('goal_for', 900, '2026-01-01T00:15:00Z');
+    assert.deepEqual(e, {
+      type: 'goal_for',
+      elapsed: 900,
+      elapsedFormatted: '15:00',
+      ts: '2026-01-01T00:15:00Z',
+    });
+  });
+
+  it('goal_against returns correct shape', () => {
+    const e = makeGoalEvent('goal_against', 1200, '2026-01-01T00:20:00Z');
+    assert.equal(e.type, 'goal_against');
+    assert.equal(e.elapsed, 1200);
+    assert.equal(e.elapsedFormatted, '20:00');
+  });
+
+  it('returns a new object each call', () => {
+    const a = makeGoalEvent('goal_for', 0, '');
+    const b = makeGoalEvent('goal_for', 0, '');
     assert.notEqual(a, b);
   });
 });
