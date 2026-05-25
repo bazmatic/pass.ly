@@ -168,7 +168,7 @@
   .trail-dot.goal_for    { background: var(--green-bright); box-shadow: 0 0 5px rgba(34,168,84,0.5); }
   .trail-dot.goal_against { background: var(--red-bright);  box-shadow: 0 0 5px rgba(232,37,64,0.5); }
   .trail-dot.goal_for.new,
-  .trail-dot.goal_against.new { animation: dotPop 0.2s ease; }
+  .trail-dot.goal_against.new { animation: diamondPop 0.2s ease; }
 
   /* Main buttons */
   .main-btns { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; flex:1; min-height:0; }
@@ -226,6 +226,7 @@
   .trail-dot.poss    { background: var(--amber-bright); box-shadow: 0 0 5px rgba(240,160,0,0.5); }
   .trail-dot.new     { animation: dotPop 0.2s ease; }
   @keyframes dotPop { 0%{transform:scale(0)} 60%{transform:scale(1.35)} 100%{transform:scale(1)} }
+  @keyframes diamondPop { 0%{transform:rotate(45deg) scale(0)} 60%{transform:rotate(45deg) scale(1.35)} 100%{transform:rotate(45deg) scale(1)} }
 
   /* Toast */
   .toast {
