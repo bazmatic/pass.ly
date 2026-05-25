@@ -245,12 +245,12 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="matchClock.js"></script>
 <script src="gameState.js"></script>
 <script>
   let state = GameState.initialState();
-  let sessionStart = null, clockInterval = null, clockOffset = 0;
-  let halfStarts = {1:null,2:null}, halfOffsets = {1:0,2:0};
-  let pendingHalf = null;
+  let clock = MatchClock.initialClock();
+  let clockInterval = null, pendingHalf = null;
 
   function setPeriod(n) {
     if (state.period === n) return;
@@ -271,13 +271,8 @@
   }
 
   function activatePeriod(n) {
-    if (clockInterval) {
-      clockOffset += Date.now() - sessionStart;
-      if (state.period) halfOffsets[state.period] += Date.now() - halfStarts[state.period];
-      clearInterval(clockInterval);
-    }
-    sessionStart = Date.now();
-    halfStarts[n] = Date.now();
+    clock = MatchClock.startPeriod(clock, state.period, n, Date.now());
+    if (clockInterval) clearInterval(clockInterval);
     state = GameState.activatePeriod(state, n, elapsedSecs(), isoNow());
     clockInterval = setInterval(tickClock, 1000);
     tickClock();
@@ -297,22 +292,15 @@
     }
   }
 
-  function halfElapsedSecs(h) {
-    if (!halfStarts[h]) return 0;
-    const running = state.period === h ? Date.now() - halfStarts[h] : 0;
-    return Math.floor((halfOffsets[h] + running) / 1000);
-  }
-
   function tickClock() {
     document.getElementById('clock').textContent = formatClock(elapsedSecs());
-    if (halfStarts[1]) document.getElementById('clock-h1').textContent = formatClock(halfElapsedSecs(1));
-    if (halfStarts[2]) document.getElementById('clock-h2').textContent = formatClock(halfElapsedSecs(2));
+    if (clock.halfStarts[1]) document.getElementById('clock-h1').textContent = formatClock(halfElapsedSecs(1));
+    if (clock.halfStarts[2]) document.getElementById('clock-h2').textContent = formatClock(halfElapsedSecs(2));
   }
 
-  function elapsedSecs() {
-    const running = sessionStart ? Date.now() - sessionStart : 0;
-    return Math.floor((clockOffset + running) / 1000);
-  }
+  function elapsedSecs() { return MatchClock.totalElapsed(clock, Date.now()); }
+
+  function halfElapsedSecs(h) { return MatchClock.halfElapsed(clock, h, state.period, Date.now()); }
 
   function formatClock(secs) {
     return String(Math.floor(secs/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0');
@@ -366,9 +354,7 @@
   const STORAGE_KEY = 'passTrackerState';
 
   function saveState() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(
-      { ...state, clockOffset, sessionStart, halfStarts, halfOffsets }
-    ));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, ...clock }));
   }
 
   function loadState() {
@@ -376,12 +362,14 @@
     try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return; }
     if (!saved) return;
     if (saved.complete === undefined) { localStorage.removeItem(STORAGE_KEY); return; }
-    const { clockOffset: co, sessionStart: ss, halfStarts: hs, halfOffsets: ho, ...stateFields } = saved;
-    state        = stateFields;
-    clockOffset  = co ?? 0;
-    sessionStart = ss ?? null;
-    halfStarts   = hs ?? {1:null, 2:null};
-    halfOffsets  = ho ?? {1:0, 2:0};
+    const { sessionStart, clockOffset, halfStarts, halfOffsets, ...stateFields } = saved;
+    state = stateFields;
+    clock = {
+      sessionStart: sessionStart ?? null,
+      clockOffset:  clockOffset  ?? 0,
+      halfStarts:   halfStarts   ?? { 1: null, 2: null },
+      halfOffsets:  halfOffsets  ?? { 1: 0,    2: 0    },
+    };
     render();
     if (state.htActive) document.getElementById('btn-ht').classList.add('active');
     if (state.period) { updatePeriodButtons(); tickClock(); clockInterval = setInterval(tickClock, 1000); }
@@ -414,8 +402,7 @@
     document.getElementById('reset-modal').classList.remove('show');
     if (!yes) return;
     state = GameState.resetState();
-    clockOffset = 0; sessionStart = null;
-    halfStarts = {1:null,2:null}; halfOffsets = {1:0,2:0};
+    clock = MatchClock.resetClock();
     document.getElementById('btn-ht').classList.remove('active');
     if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
     document.getElementById('clock').textContent = '00:00';
