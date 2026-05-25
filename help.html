@@ -35,7 +35,6 @@
     padding: 1.5rem 1.25rem 3rem;
   }
 
-  /* Header */
   .header {
     display: flex;
     align-items: center;
@@ -56,7 +55,6 @@
     color: var(--muted);
   }
 
-  /* Sections */
   .section { margin-bottom: 2rem; }
 
   h2 {
@@ -76,7 +74,6 @@
 
   p + p { margin-top: 0.5rem; }
 
-  /* Item rows */
   .item {
     display: flex;
     align-items: baseline;
@@ -102,6 +99,8 @@
   .badge-teal   { background: rgba(60,180,140,0.15); color: #80e8c0; border: 1px solid rgba(80,200,150,0.15); }
   .badge-purple { background: rgba(140,80,220,0.15); color: #c8a0ff; border: 1px solid rgba(180,100,255,0.15); }
   .badge-red2   { background: rgba(220,60,60,0.15);  color: #e87070; border: 1px solid rgba(255,80,80,0.15); }
+  .badge-goal-for     { background: rgba(34,168,84,0.08);  color: var(--green-bright); border: 1px solid rgba(34,168,84,0.25); }
+  .badge-goal-against { background: rgba(232,37,64,0.08);  color: var(--red-bright);   border: 1px solid rgba(232,37,64,0.25); }
 
   .item-desc {
     font-size: 0.72rem;
@@ -110,7 +109,6 @@
     opacity: 0.8;
   }
 
-  /* Period buttons illustration */
   .period-demo {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -132,7 +130,6 @@
   .period-demo-btn.active-2 { background: #ffaa00; color: #000; border: 2px solid #fff; }
   .period-demo-btn.locked   { opacity: 0.3; }
 
-  /* Callout */
   .callout {
     background: rgba(255,255,255,0.03);
     border: 1px solid var(--line);
@@ -158,17 +155,19 @@
 
 <div class="section">
   <h2>Overview</h2>
-  <p>Pass Tracker records the outcome of every pass during a match in real time. Tap the big buttons as each pass happens — the app tracks accuracy, streaks, and timing so you can review performance after the game.</p>
+  <p>Pass Tracker records the outcome of every pass during a match in real time. Tap the big buttons as each pass happens — the app tracks accuracy, streaks, goals, and timing so you can review performance after the game.</p>
+  <p>Your session is saved automatically. If you close or refresh the page, your data will still be there when you reopen it.</p>
 </div>
 
 <div class="section">
   <h2>Starting a Match</h2>
-  <p>Tap <strong>1st</strong> to begin the first half. The match clock starts immediately. All pass events are timestamped from this moment.</p>
+  <p>Tap <strong>▶ 1st</strong> to begin the first half. The match clock starts immediately.</p>
   <div class="period-demo" style="margin-top:0.75rem">
     <div class="period-demo-btn active-1">▶ 1st 00:00</div>
     <div class="period-demo-btn">▶ 2nd</div>
   </div>
-  <p>At half time, tap <strong>2nd</strong>. You'll be asked to confirm — once the second half starts, first half data is locked and can't be changed. The clock continues from where it left off.</p>
+  <p>Use the <strong>HT</strong> button to mark the start and end of half time — this creates a visible break in the stats timeline.</p>
+  <p>When the second half begins, tap <strong>▶ 2nd</strong>. You'll be asked to confirm — once started, first half data is locked. The clock continues from where it left off.</p>
   <div class="period-demo">
     <div class="period-demo-btn locked">▶ 1st 34:12</div>
     <div class="period-demo-btn active-2">▶ 2nd 00:00</div>
@@ -183,43 +182,53 @@
   </div>
   <div class="item">
     <span class="badge badge-red">✗</span>
-    <span class="item-desc"><strong>Failed</strong> — pass was intercepted or missed. Resets the streak to zero.</span>
+    <span class="item-desc"><strong>Failed</strong> — pass was intercepted or went astray. Resets the streak and counts against accuracy.</span>
   </div>
   <div class="item">
     <span class="badge badge-muted" style="font-size:0.7rem;letter-spacing:0">↺ Streak Reset</span>
-    <span class="item-desc"><strong>Lost possession</strong> — the team lost the ball without a direct pass failure (e.g. a tackle, the ball went out, or a goal was scored). Resets the streak but does not count as a failed pass, so it doesn't affect accuracy.</span>
+    <span class="item-desc"><strong>Lost possession</strong> — the team lost the ball without a direct pass failure (e.g. a tackle or the ball went out). Resets the streak but does not count as a failed pass, so accuracy is unaffected.</span>
   </div>
   <div class="callout">
-    The <strong>streak</strong> counts consecutive completed passes. It resets on any fail or possession loss. The <strong>best streak</strong> (⭐) records the highest run achieved in the session.
+    The <strong>streak</strong> counts consecutive completed passes. It resets on any fail, possession loss, or goal. The <strong>best streak</strong> (⭐) records the highest run achieved in the session.
   </div>
+</div>
+
+<div class="section">
+  <h2>Recording Goals</h2>
+  <div class="item">
+    <span class="badge badge-goal-for">⚽ FOR</span>
+    <span class="item-desc"><strong>Goal for</strong> — your team scored. Resets the pass streak.</span>
+  </div>
+  <div class="item">
+    <span class="badge badge-goal-against">⚽ AGT</span>
+    <span class="item-desc"><strong>Goal against</strong> — the opposition scored. Resets the pass streak.</span>
+  </div>
+  <p>The live score is shown in the header and updates as goals are recorded. Goals appear as diamond markers in the pass trail and on the stats timeline. They don't affect pass accuracy.</p>
 </div>
 
 <div class="section">
   <h2>Utility Buttons</h2>
   <div class="item">
     <span class="badge badge-blue">↩</span>
-    <span class="item-desc"><strong>Undo</strong> — removes the last recorded event. Greyed out when there's nothing to undo.</span>
+    <span class="item-desc"><strong>Undo</strong> — removes the last recorded event (passes, goals, anything). Greyed out when there's nothing to undo.</span>
   </div>
   <div class="item">
     <span class="badge badge-teal">↗</span>
-    <span class="item-desc"><strong>Share</strong> — sends a summary of current stats via the system share sheet. On desktop it copies the text to the clipboard instead.</span>
+    <span class="item-desc"><strong>Share</strong> — sends a stats summary via the system share sheet. On desktop it copies to the clipboard instead.</span>
   </div>
   <div class="item">
     <span class="badge badge-purple">⬇</span>
-    <span class="item-desc"><strong>Export</strong> — downloads the full session as a JSON file named <code style="opacity:0.7">pass-tracker-YYYY-MM-DD.json</code>. This file can be loaded into the stats viewer for charts and analysis.</span>
+    <span class="item-desc"><strong>Export</strong> — downloads the full session as a <code style="opacity:0.7">pass-tracker-YYYY-MM-DD.json</code> file. Load this into the Stats Viewer for charts and analysis.</span>
   </div>
   <div class="item">
-    <span class="badge badge-red2">⟳</span>
-    <span class="item-desc"><strong>Reset</strong> — clears all data and restarts from zero. A confirmation prompt appears first. This cannot be undone.</span>
+    <span class="badge badge-red2">🗑</span>
+    <span class="item-desc"><strong>Reset</strong> — clears all data and restarts from zero. A confirmation prompt appears first. Cannot be undone.</span>
   </div>
 </div>
 
 <div class="section">
   <h2>Viewing Stats</h2>
-  <p>After the match, tap <strong>⬇ Export</strong> to save the JSON file, then open the <a href="stats-viewer.html" target="_blank" style="color:var(--green-bright)">Stats Viewer</a> and drop the file in to see accuracy charts, a per-pass timeline, and quarter breakdowns.</p>
-  <div class="callout amber">
-    Keep the app open during the match — closing or refreshing the page will lose unsaved data. Export before you close.
-  </div>
+  <p>After the match, tap <strong>⬇ Export</strong>, then open the <a href="stats-viewer.html" target="_blank" style="color:var(--green-bright)">Stats Viewer</a> and drop the file in. You'll see accuracy over time, a per-pass timeline with goal markers, and quarter-by-quarter breakdowns.</p>
 </div>
 
 </body>
