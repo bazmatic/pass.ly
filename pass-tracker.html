@@ -435,39 +435,36 @@
   }
 
   function exportData() {
-    if (!events.length) { toast('No data to export yet'); return; }
-    const total = s+f;
-    const summary = { complete:s, fail:f, lostPossession:p, total, accuracy:total?Math.round(s/total*100)+'%':'—', bestStreak:best, duration:formatClock(elapsedSecs()) };
-    const csvRows = [
-      ['#','type','period','timestamp','elapsed_sec','elapsed_fmt','streak_before','streak_after','running_accuracy_pct'],
-      ...events.filter(e=>e.type!=='period').map((e,i)=>[i+1,e.type,e.period,e.ts,e.elapsed,e.elapsedFormatted,e.streakBefore??'',e.streakAfter??'',e.runningAccuracy??''])
-    ].map(r=>r.join(',')).join('\n');
-    const jsonData = JSON.stringify({ summary, events }, null, 2);
-    // Can't use confirm() in iframe — default to JSON, toggle via toast action
-    const blob = new Blob([jsonData], { type:'application/json' });
+    if (!state.events.length) { toast('No data to export yet'); return; }
+    const { complete, fail, poss, best } = state;
+    const total = complete + fail;
+    const summary = { complete, fail, lostPossession: poss, total, accuracy: total ? Math.round(complete / total * 100) + '%' : '—', bestStreak: best, duration: formatClock(elapsedSecs()) };
+    const jsonData = JSON.stringify({ summary, events: state.events }, null, 2);
+    const blob = new Blob([jsonData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href=url; a.download=`pass-tracker-${new Date().toISOString().slice(0,10)}.json`;
+    a.href = url; a.download = `pass-tracker-${new Date().toISOString().slice(0, 10)}.json`;
     a.click(); URL.revokeObjectURL(url);
     toast('Exported as JSON');
   }
 
   function share() {
-    const total = s+f;
+    const { complete, fail, poss, streak, best } = state;
+    const total = complete + fail;
     const text =
 `⚽ Pass Tracker Stats
 ──────────────────
-✅ Complete:  ${s}
-❌ Fail:      ${f}
-⚠️  Lost Poss: ${p}
-🎯 Accuracy:  ${total?Math.round(s/total*100)+'%':'—'}
+✅ Complete:  ${complete}
+❌ Fail:      ${fail}
+⚠️  Lost Poss: ${poss}
+🎯 Accuracy:  ${total ? Math.round(complete / total * 100) + '%' : '—'}
 🔥 Streak:    ${streak}
 ⭐ Best:      ${best}
 ⏱ Duration:  ${formatClock(elapsedSecs())}`;
     if (navigator.share) {
-      navigator.share({ text }).catch(()=>{});
+      navigator.share({ text }).catch(() => {});
     } else {
-      navigator.clipboard.writeText(text).then(()=>toast('Stats copied!')).catch(()=>toast('Could not copy'));
+      navigator.clipboard.writeText(text).then(() => toast('Stats copied!')).catch(() => toast('Could not copy'));
     }
   }
 
