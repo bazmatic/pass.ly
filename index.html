@@ -245,18 +245,18 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="gameState.js"></script>
 <script>
-  let s = 0, f = 0, p = 0, streak = 0, best = 0;
-  let history = [], events = [];
-  let period = null, sessionStart = null, clockInterval = null, clockOffset = 0;
+  let state = GameState.initialState();
+  let sessionStart = null, clockInterval = null, clockOffset = 0;
   let halfStarts = {1:null,2:null}, halfOffsets = {1:0,2:0};
-  let pendingHalf = null, htActive = false;
+  let pendingHalf = null;
 
   function setPeriod(n) {
-    if (period === n) return;
-    if (n === 1 && period === 2) { toast('1st Half is locked'); return; }
-    if (n === 2 && period === null) { toast('Start 1st Half first'); return; }
-    if (n === 2 && period === 1) {
+    if (state.period === n) return;
+    if (n === 1 && state.period === 2) { toast('1st Half is locked'); return; }
+    if (n === 2 && state.period === null) { toast('Start 1st Half first'); return; }
+    if (n === 2 && state.period === 1) {
       pendingHalf = n;
       document.getElementById('confirm-box').classList.add('show');
       return;
@@ -264,42 +264,34 @@
     activatePeriod(n);
   }
 
-  function confirmHalf(yes) {
-    document.getElementById('confirm-box').classList.remove('show');
-    if (yes && pendingHalf) activatePeriod(pendingHalf);
-    pendingHalf = null;
-  }
-
   function toggleHT() {
-    htActive = !htActive;
-    document.getElementById('btn-ht').classList.toggle('active', htActive);
-    events.push({ type:'halftime', phase: htActive ? 'start' : 'end', ts:isoNow(), elapsed:elapsedSecs() });
+    state = GameState.toggleHT(state, elapsedSecs(), isoNow());
+    document.getElementById('btn-ht').classList.toggle('active', state.htActive);
     saveState();
   }
 
   function activatePeriod(n) {
     if (clockInterval) {
       clockOffset += Date.now() - sessionStart;
-      if (period) halfOffsets[period] += Date.now() - halfStarts[period];
+      if (state.period) halfOffsets[state.period] += Date.now() - halfStarts[state.period];
       clearInterval(clockInterval);
     }
-    period = n;
     sessionStart = Date.now();
     halfStarts[n] = Date.now();
+    state = GameState.activatePeriod(state, n, elapsedSecs(), isoNow());
     clockInterval = setInterval(tickClock, 1000);
     tickClock();
     updatePeriodButtons();
-    events.push({ type:'period', period:n, ts:isoNow(), elapsed:elapsedSecs() });
     saveState();
   }
 
   function updatePeriodButtons() {
     const h1 = document.getElementById('btn-h1');
     const h2 = document.getElementById('btn-h2');
-    if (period === 1) {
+    if (state.period === 1) {
       h1.style.cssText = 'background:#00dd55;color:#000;border:3px solid #fff;';
       h2.style.cssText = '';
-    } else if (period === 2) {
+    } else if (state.period === 2) {
       h1.style.cssText = 'opacity:0.3;cursor:not-allowed;';
       h2.style.cssText = 'background:#ffaa00;color:#000;border:3px solid #fff;';
     }
@@ -307,7 +299,7 @@
 
   function halfElapsedSecs(h) {
     if (!halfStarts[h]) return 0;
-    const running = period === h ? Date.now() - halfStarts[h] : 0;
+    const running = state.period === h ? Date.now() - halfStarts[h] : 0;
     return Math.floor((halfOffsets[h] + running) / 1000);
   }
 
@@ -375,7 +367,7 @@
 
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(
-      { s, f, p, streak, best, history, events, period, clockOffset, sessionStart, halfStarts, halfOffsets, htActive }
+      { ...state, clockOffset, sessionStart, halfStarts, halfOffsets }
     ));
   }
 
@@ -383,69 +375,55 @@
     let saved;
     try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return; }
     if (!saved) return;
-    s           = saved.s           ?? 0;
-    f           = saved.f           ?? 0;
-    p           = saved.p           ?? 0;
-    streak      = saved.streak      ?? 0;
-    best        = saved.best        ?? 0;
-    history     = saved.history     ?? [];
-    events      = saved.events      ?? [];
-    period      = saved.period      ?? null;
-    clockOffset = saved.clockOffset ?? 0;
-    sessionStart= saved.sessionStart?? null;
-    halfStarts  = saved.halfStarts  ?? {1:null, 2:null};
-    halfOffsets = saved.halfOffsets ?? {1:0, 2:0};
-    htActive    = saved.htActive    ?? false;
-    update();
-    if (htActive) document.getElementById('btn-ht').classList.add('active');
-    if (period) { updatePeriodButtons(); tickClock(); clockInterval = setInterval(tickClock, 1000); }
+    if (saved.complete === undefined) { localStorage.removeItem(STORAGE_KEY); return; }
+    const { clockOffset: co, sessionStart: ss, halfStarts: hs, halfOffsets: ho, ...stateFields } = saved;
+    state        = stateFields;
+    clockOffset  = co ?? 0;
+    sessionStart = ss ?? null;
+    halfStarts   = hs ?? {1:null, 2:null};
+    halfOffsets  = ho ?? {1:0, 2:0};
+    render();
+    if (state.htActive) document.getElementById('btn-ht').classList.add('active');
+    if (state.period) { updatePeriodButtons(); tickClock(); clockInterval = setInterval(tickClock, 1000); }
   }
 
   function count(type, btn) {
     if (type === 'success') soundSuccess();
     else if (type === 'fail') soundFail();
     else if (type === 'poss') soundReset();
-    history.push({ s, f, p, streak, best, events:[...events] });
-    const ev = { type, period:period||'unset', ts:isoNow(), elapsed:elapsedSecs(), elapsedFormatted:formatClock(elapsedSecs()), streakBefore:streak };
-    if (type==='success') { s++; streak++; if (streak>best) best=streak; }
-    else if (type==='fail') { f++; streak=0; }
-    else { p++; streak=0; }
-    ev.streakAfter = streak;
-    ev.runningAccuracy = (s+f) ? Math.round((s/(s+f))*100) : null;
-    events.push(ev);
-    update();
+    state = GameState.recordPass(state, type, elapsedSecs(), isoNow());
+    render();
     saveState();
-    bump(type==='success'?'val-s':'val-f');
-    ripple(btn, type==='success'?'rgba(100,255,150,0.35)':type==='fail'?'rgba(255,80,80,0.35)':'rgba(240,160,0,0.35)');
+    bump(type === 'success' ? 'val-s' : 'val-f');
+    ripple(btn, type === 'success' ? 'rgba(100,255,150,0.35)' : type === 'fail' ? 'rgba(255,80,80,0.35)' : 'rgba(240,160,0,0.35)');
   }
 
   function undo() {
-    if (!history.length) return;
-    ({ s, f, p, streak, best, events } = history.pop());
-    update();
+    if (!state.history.length) return;
+    state = GameState.undoLast(state);
+    render();
     saveState();
   }
 
   function clearAll() {
-    if (!events.length) return;
+    if (!state.events.length) return;
     document.getElementById('reset-modal').classList.add('show');
   }
 
   function confirmReset(yes) {
     document.getElementById('reset-modal').classList.remove('show');
     if (!yes) return;
-    history=[]; events=[];
-    s=0; f=0; p=0; streak=0; best=0;
-    clockOffset=0; sessionStart=null; period=null;
-    halfStarts={1:null,2:null}; halfOffsets={1:0,2:0}; htActive=false;
+    state = GameState.resetState();
+    clockOffset = 0; sessionStart = null;
+    halfStarts = {1:null,2:null}; halfOffsets = {1:0,2:0};
     document.getElementById('btn-ht').classList.remove('active');
-    if (clockInterval) { clearInterval(clockInterval); clockInterval=null; }
-    document.getElementById('clock').textContent='00:00';
-    document.getElementById('clock-h1').textContent='';
-    document.getElementById('clock-h2').textContent='';
-    document.getElementById('btn-h1').style.cssText='';
-    document.getElementById('btn-h2').style.cssText='';
-    update();
+    if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
+    document.getElementById('clock').textContent = '00:00';
+    document.getElementById('clock-h1').textContent = '';
+    document.getElementById('clock-h2').textContent = '';
+    document.getElementById('btn-h1').style.cssText = '';
+    document.getElementById('btn-h2').style.cssText = '';
+    render();
     localStorage.removeItem(STORAGE_KEY);
   }
 
@@ -457,52 +435,49 @@
   }
 
   function exportData() {
-    if (!events.length) { toast('No data to export yet'); return; }
-    const total = s+f;
-    const summary = { complete:s, fail:f, lostPossession:p, total, accuracy:total?Math.round(s/total*100)+'%':'—', bestStreak:best, duration:formatClock(elapsedSecs()) };
-    const csvRows = [
-      ['#','type','period','timestamp','elapsed_sec','elapsed_fmt','streak_before','streak_after','running_accuracy_pct'],
-      ...events.filter(e=>e.type!=='period').map((e,i)=>[i+1,e.type,e.period,e.ts,e.elapsed,e.elapsedFormatted,e.streakBefore??'',e.streakAfter??'',e.runningAccuracy??''])
-    ].map(r=>r.join(',')).join('\n');
-    const jsonData = JSON.stringify({ summary, events }, null, 2);
-    // Can't use confirm() in iframe — default to JSON, toggle via toast action
-    const blob = new Blob([jsonData], { type:'application/json' });
+    if (!state.events.length) { toast('No data to export yet'); return; }
+    const { complete, fail, poss, best } = state;
+    const total = complete + fail;
+    const summary = { complete, fail, lostPossession: poss, total, accuracy: total ? Math.round(complete / total * 100) + '%' : '—', bestStreak: best, duration: formatClock(elapsedSecs()) };
+    const jsonData = JSON.stringify({ summary, events: state.events }, null, 2);
+    const blob = new Blob([jsonData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href=url; a.download=`pass-tracker-${new Date().toISOString().slice(0,10)}.json`;
+    a.href = url; a.download = `pass-tracker-${new Date().toISOString().slice(0, 10)}.json`;
     a.click(); URL.revokeObjectURL(url);
     toast('Exported as JSON');
   }
 
   function share() {
-    const total = s+f;
+    const { complete, fail, poss, streak, best } = state;
+    const total = complete + fail;
     const text =
 `⚽ Pass Tracker Stats
 ──────────────────
-✅ Complete:  ${s}
-❌ Fail:      ${f}
-⚠️  Lost Poss: ${p}
-🎯 Accuracy:  ${total?Math.round(s/total*100)+'%':'—'}
+✅ Complete:  ${complete}
+❌ Fail:      ${fail}
+⚠️  Lost Poss: ${poss}
+🎯 Accuracy:  ${total ? Math.round(complete / total * 100) + '%' : '—'}
 🔥 Streak:    ${streak}
 ⭐ Best:      ${best}
 ⏱ Duration:  ${formatClock(elapsedSecs())}`;
     if (navigator.share) {
-      navigator.share({ text }).catch(()=>{});
+      navigator.share({ text }).catch(() => {});
     } else {
-      navigator.clipboard.writeText(text).then(()=>toast('Stats copied!')).catch(()=>toast('Could not copy'));
+      navigator.clipboard.writeText(text).then(() => toast('Stats copied!')).catch(() => toast('Could not copy'));
     }
   }
 
-  function update() {
-    document.getElementById('val-s').textContent = s;
-    document.getElementById('val-f').textContent = f;
-    document.getElementById('streak-cur').textContent = streak;
-    document.getElementById('streak-best').textContent = best;
-    document.getElementById('undo-btn').disabled = history.length===0;
-    const total = s+f;
+  function render() {
+    document.getElementById('val-s').textContent  = state.complete;
+    document.getElementById('val-f').textContent  = state.fail;
+    document.getElementById('streak-cur').textContent  = state.streak;
+    document.getElementById('streak-best').textContent = state.best;
+    document.getElementById('undo-btn').disabled = state.history.length === 0;
+    const total = state.complete + state.fail;
     const acc = document.getElementById('accuracy-bar');
     acc.innerHTML = total
-      ? `Accuracy — <span>${Math.round(s/total*100)}%</span> &nbsp;·&nbsp; ${total} passes${p?` &nbsp;·&nbsp; ${p} lost poss.`:''}`
+      ? `Accuracy — <span>${Math.round(state.complete / total * 100)}%</span> &nbsp;·&nbsp; ${total} passes${state.poss ? ` &nbsp;·&nbsp; ${state.poss} lost poss.` : ''}`
       : 'Accuracy — <span>—</span>';
   }
 
