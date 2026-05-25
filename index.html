@@ -25,8 +25,10 @@
 
   /* Header */
   .header { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
-  .header-dot { width: 8px; height: 8px; background: var(--green-bright); border-radius: 50%; animation: pulse 2s ease-in-out infinite; flex-shrink: 0; }
   @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
+  .pulse-dot { display:none; width:7px; height:7px; border-radius:50%; animation:pulse 2s ease-in-out infinite; flex-shrink:0; vertical-align:middle; margin-right:0.3rem; }
+  .period-active .pulse-dot { display:inline-block; background:currentColor; }
+  .btn-ht.active .pulse-dot { display:inline-block; background:var(--amber-bright); }
   .header-title { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:.25em; color:var(--muted); }
   .match-clock { font-size:1rem; letter-spacing:.12em; color:var(--text); }
   .help-link {
@@ -235,16 +237,15 @@
 <body>
 
   <div class="header">
-    <div class="header-dot"></div>
     <div class="header-title">⚽ Pass Tracker</div>
     <div class="match-score" id="match-score">0 – 0</div>
     <div class="match-clock" id="clock">00:00</div>
   </div>
 
   <div class="period-row">
-    <button class="period-btn" id="btn-h1" onclick="setPeriod(1)">▶ 1st <span id="clock-h1"></span></button>
-    <button class="btn-ht" id="btn-ht" onclick="toggleHT()">HT</button>
-    <button class="period-btn" id="btn-h2" onclick="setPeriod(2)">▶ 2nd <span id="clock-h2"></span></button>
+    <button class="period-btn" id="btn-h1" onclick="setPeriod(1)"><span class="pulse-dot"></span>▶ 1st <span id="clock-h1"></span></button>
+    <button class="btn-ht" id="btn-ht" onclick="toggleHT()"><span class="pulse-dot"></span>HT</button>
+    <button class="period-btn" id="btn-h2" onclick="setPeriod(2)"><span class="pulse-dot"></span>▶ 2nd <span id="clock-h2"></span></button>
   </div>
 
   <div class="confirm-box" id="confirm-box">
@@ -337,12 +338,16 @@
   function updatePeriodButtons() {
     const h1 = document.getElementById('btn-h1');
     const h2 = document.getElementById('btn-h2');
+    h1.classList.remove('period-active');
+    h2.classList.remove('period-active');
     if (state.period === 1) {
       h1.style.cssText = 'background:#00dd55;color:#000;border:3px solid #fff;';
+      h1.classList.add('period-active');
       h2.style.cssText = '';
     } else if (state.period === 2) {
       h1.style.cssText = 'opacity:0.3;cursor:not-allowed;';
       h2.style.cssText = 'background:#ffaa00;color:#000;border:3px solid #fff;';
+      h2.classList.add('period-active');
     }
   }
 
@@ -475,6 +480,8 @@
     document.getElementById('clock-h2').textContent = '';
     document.getElementById('btn-h1').style.cssText = '';
     document.getElementById('btn-h2').style.cssText = '';
+    document.getElementById('btn-h1').classList.remove('period-active');
+    document.getElementById('btn-h2').classList.remove('period-active');
     render();
     localStorage.removeItem(STORAGE_KEY);
   }
