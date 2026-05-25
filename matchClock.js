@@ -32,5 +32,20 @@
     };
   }
 
-  return { initialClock, startPeriod };
+  function totalElapsed(clock, now) {
+    const running = clock.sessionStart !== null ? now - clock.sessionStart : 0;
+    return Math.floor((clock.clockOffset + running) / 1000);
+  }
+
+  function halfElapsed(clock, h, activePeriod, now) {
+    if (clock.halfStarts[h] === null) return 0;
+    const running = activePeriod === h ? now - clock.halfStarts[h] : 0;
+    return Math.floor((clock.halfOffsets[h] + running) / 1000);
+  }
+
+  function resetClock() {
+    return initialClock();
+  }
+
+  return { initialClock, startPeriod, totalElapsed, halfElapsed, resetClock };
 }));
