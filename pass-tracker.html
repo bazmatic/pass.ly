@@ -170,6 +170,21 @@
   .ripple { position:absolute; border-radius:50%; transform:scale(0); animation:rippleAnim .4s linear; pointer-events:none; }
   @keyframes rippleAnim { to { transform:scale(4); opacity:0; } }
 
+  /* Pass trail */
+  .pass-trail {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0.4rem; padding: 0.5rem 0 0.25rem; flex-shrink: 0; min-height: 1.6rem;
+  }
+  .trail-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    transition: transform 0.12s ease;
+  }
+  .trail-dot.success { background: var(--green-bright); box-shadow: 0 0 5px rgba(34,168,84,0.5); }
+  .trail-dot.fail    { background: var(--red-bright);   box-shadow: 0 0 5px rgba(232,37,64,0.5); }
+  .trail-dot.poss    { background: var(--amber-bright); box-shadow: 0 0 5px rgba(240,160,0,0.5); }
+  .trail-dot.new     { animation: dotPop 0.2s ease; }
+  @keyframes dotPop { 0%{transform:scale(0)} 60%{transform:scale(1.35)} 100%{transform:scale(1)} }
+
   /* Toast */
   .toast {
     position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%);
@@ -242,6 +257,8 @@
 </div>
 
 <a class="help-link" href="help.html" target="_blank">HELP<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:0.7rem;height:0.7rem;opacity:0.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+
+<div class="pass-trail" id="pass-trail"></div>
 
 <div class="toast" id="toast"></div>
 
@@ -456,6 +473,21 @@
     }
   }
 
+  const TRAIL_SIZE = 10;
+  let _trailLen = 0;
+
+  function renderTrail() {
+    const passEvents = state.events.filter(e => e.type === 'success' || e.type === 'fail' || e.type === 'poss');
+    const recent = passEvents.slice(-TRAIL_SIZE);
+    const trail = document.getElementById('pass-trail');
+    const isNew = recent.length > _trailLen;
+    _trailLen = recent.length;
+    trail.innerHTML = recent.map((e, i) => {
+      const newClass = isNew && i === recent.length - 1 ? ' new' : '';
+      return `<div class="trail-dot ${e.type}${newClass}"></div>`;
+    }).join('');
+  }
+
   function render() {
     document.getElementById('val-s').textContent  = state.complete;
     document.getElementById('val-f').textContent  = state.fail;
@@ -467,6 +499,7 @@
     acc.innerHTML = total
       ? `Accuracy — <span>${Math.round(state.complete / total * 100)}%</span> &nbsp;·&nbsp; ${total} passes${state.poss ? ` &nbsp;·&nbsp; ${state.poss} lost poss.` : ''}`
       : 'Accuracy — <span>—</span>';
+    renderTrail();
   }
 
   function bump(id) {
