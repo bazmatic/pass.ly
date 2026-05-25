@@ -120,14 +120,6 @@
   .accuracy { text-align:center; font-size:.68rem; letter-spacing:.1em; color:var(--muted); padding:.45rem .5rem; border:1px solid var(--line); border-radius:3px; flex-shrink:0; }
   .accuracy span { color:var(--text); font-weight:500; }
 
-  /* Streak */
-  .streak-row { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; flex-shrink:0; }
-  .streak-box { background:rgba(255,255,255,0.02); border:1px solid var(--line); border-radius:3px; padding:.5rem .75rem .4rem; text-align:center; }
-  .streak-label { font-size:.58rem; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-bottom:.15rem; }
-  .streak-value { font-family:'Bebas Neue',sans-serif; font-size:1.6rem; line-height:1; }
-  .streak-box.current .streak-value { color:#7de8a0; }
-  .streak-box.best    .streak-value { color:#ffd166; }
-
   /* Score display */
   .match-score {
     font-family: 'Bebas Neue', sans-serif;
@@ -267,11 +259,6 @@
   </div>
 
   <div class="accuracy" id="accuracy-bar">Accuracy — <span>—</span></div>
-
-  <div class="streak-row">
-    <div class="streak-box current"><div class="streak-label">🔥 Streak</div><div class="streak-value" id="streak-cur">0</div></div>
-    <div class="streak-box best">  <div class="streak-label">⭐ Best</div>  <div class="streak-value" id="streak-best">0</div></div>
-  </div>
 
   <div class="main-btns">
     <button class="btn btn-success" onclick="count('success', this)">✓</button>
@@ -565,13 +552,11 @@
   function render() {
     document.getElementById('val-s').textContent  = state.complete;
     document.getElementById('val-f').textContent  = state.fail;
-    document.getElementById('streak-cur').textContent  = state.streak;
-    document.getElementById('streak-best').textContent = state.best;
     document.getElementById('undo-btn').disabled = state.history.length === 0;
     const total = state.complete + state.fail;
     const acc = document.getElementById('accuracy-bar');
     acc.innerHTML = total
-      ? `Accuracy — <span>${Math.round(state.complete / total * 100)}%</span> &nbsp;·&nbsp; ${total} passes${state.poss ? ` &nbsp;·&nbsp; ${state.poss} lost poss.` : ''}`
+      ? `Accuracy — <span>${Math.round(state.complete / total * 100)}%</span> &nbsp;·&nbsp; ${total} passes${state.poss ? ` &nbsp;·&nbsp; ${state.poss} lost poss.` : ''} &nbsp;·&nbsp; 🔥 ${state.streak} &nbsp;·&nbsp; ⭐ ${state.best}`
       : 'Accuracy — <span>—</span>';
     document.getElementById('match-score').textContent =
       state.goalsFor + ' – ' + state.goalsAgainst;
