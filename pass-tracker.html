@@ -248,15 +248,15 @@
 <script src="gameState.js"></script>
 <script>
   let state = GameState.initialState();
-  let period = null, sessionStart = null, clockInterval = null, clockOffset = 0;
+  let sessionStart = null, clockInterval = null, clockOffset = 0;
   let halfStarts = {1:null,2:null}, halfOffsets = {1:0,2:0};
-  let pendingHalf = null, htActive = false;
+  let pendingHalf = null;
 
   function setPeriod(n) {
-    if (period === n) return;
-    if (n === 1 && period === 2) { toast('1st Half is locked'); return; }
-    if (n === 2 && period === null) { toast('Start 1st Half first'); return; }
-    if (n === 2 && period === 1) {
+    if (state.period === n) return;
+    if (n === 1 && state.period === 2) { toast('1st Half is locked'); return; }
+    if (n === 2 && state.period === null) { toast('Start 1st Half first'); return; }
+    if (n === 2 && state.period === 1) {
       pendingHalf = n;
       document.getElementById('confirm-box').classList.add('show');
       return;
@@ -264,42 +264,34 @@
     activatePeriod(n);
   }
 
-  function confirmHalf(yes) {
-    document.getElementById('confirm-box').classList.remove('show');
-    if (yes && pendingHalf) activatePeriod(pendingHalf);
-    pendingHalf = null;
-  }
-
   function toggleHT() {
-    htActive = !htActive;
-    document.getElementById('btn-ht').classList.toggle('active', htActive);
-    events.push({ type:'halftime', phase: htActive ? 'start' : 'end', ts:isoNow(), elapsed:elapsedSecs() });
+    state = GameState.toggleHT(state, elapsedSecs(), isoNow());
+    document.getElementById('btn-ht').classList.toggle('active', state.htActive);
     saveState();
   }
 
   function activatePeriod(n) {
     if (clockInterval) {
       clockOffset += Date.now() - sessionStart;
-      if (period) halfOffsets[period] += Date.now() - halfStarts[period];
+      if (state.period) halfOffsets[state.period] += Date.now() - halfStarts[state.period];
       clearInterval(clockInterval);
     }
-    period = n;
     sessionStart = Date.now();
     halfStarts[n] = Date.now();
+    state = GameState.activatePeriod(state, n, elapsedSecs(), isoNow());
     clockInterval = setInterval(tickClock, 1000);
     tickClock();
     updatePeriodButtons();
-    events.push({ type:'period', period:n, ts:isoNow(), elapsed:elapsedSecs() });
     saveState();
   }
 
   function updatePeriodButtons() {
     const h1 = document.getElementById('btn-h1');
     const h2 = document.getElementById('btn-h2');
-    if (period === 1) {
+    if (state.period === 1) {
       h1.style.cssText = 'background:#00dd55;color:#000;border:3px solid #fff;';
       h2.style.cssText = '';
-    } else if (period === 2) {
+    } else if (state.period === 2) {
       h1.style.cssText = 'opacity:0.3;cursor:not-allowed;';
       h2.style.cssText = 'background:#ffaa00;color:#000;border:3px solid #fff;';
     }
@@ -307,7 +299,7 @@
 
   function halfElapsedSecs(h) {
     if (!halfStarts[h]) return 0;
-    const running = period === h ? Date.now() - halfStarts[h] : 0;
+    const running = state.period === h ? Date.now() - halfStarts[h] : 0;
     return Math.floor((halfOffsets[h] + running) / 1000);
   }
 
@@ -375,7 +367,7 @@
 
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(
-      { s, f, p, streak, best, history, events, period, clockOffset, sessionStart, halfStarts, halfOffsets, htActive }
+      { ...state, clockOffset, sessionStart, halfStarts, halfOffsets }
     ));
   }
 
@@ -383,22 +375,16 @@
     let saved;
     try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return; }
     if (!saved) return;
-    s           = saved.s           ?? 0;
-    f           = saved.f           ?? 0;
-    p           = saved.p           ?? 0;
-    streak      = saved.streak      ?? 0;
-    best        = saved.best        ?? 0;
-    history     = saved.history     ?? [];
-    events      = saved.events      ?? [];
-    period      = saved.period      ?? null;
-    clockOffset = saved.clockOffset ?? 0;
-    sessionStart= saved.sessionStart?? null;
-    halfStarts  = saved.halfStarts  ?? {1:null, 2:null};
-    halfOffsets = saved.halfOffsets ?? {1:0, 2:0};
-    htActive    = saved.htActive    ?? false;
+    if (saved.complete === undefined) { localStorage.removeItem(STORAGE_KEY); return; }
+    const { clockOffset: co, sessionStart: ss, halfStarts: hs, halfOffsets: ho, ...stateFields } = saved;
+    state        = stateFields;
+    clockOffset  = co ?? 0;
+    sessionStart = ss ?? null;
+    halfStarts   = hs ?? {1:null, 2:null};
+    halfOffsets  = ho ?? {1:0, 2:0};
     render();
-    if (htActive) document.getElementById('btn-ht').classList.add('active');
-    if (period) { updatePeriodButtons(); tickClock(); clockInterval = setInterval(tickClock, 1000); }
+    if (state.htActive) document.getElementById('btn-ht').classList.add('active');
+    if (state.period) { updatePeriodButtons(); tickClock(); clockInterval = setInterval(tickClock, 1000); }
   }
 
   function count(type, btn) {
@@ -427,17 +413,16 @@
   function confirmReset(yes) {
     document.getElementById('reset-modal').classList.remove('show');
     if (!yes) return;
-    history=[]; events=[];
-    s=0; f=0; p=0; streak=0; best=0;
-    clockOffset=0; sessionStart=null; period=null;
-    halfStarts={1:null,2:null}; halfOffsets={1:0,2:0}; htActive=false;
+    state = GameState.resetState();
+    clockOffset = 0; sessionStart = null;
+    halfStarts = {1:null,2:null}; halfOffsets = {1:0,2:0};
     document.getElementById('btn-ht').classList.remove('active');
-    if (clockInterval) { clearInterval(clockInterval); clockInterval=null; }
-    document.getElementById('clock').textContent='00:00';
-    document.getElementById('clock-h1').textContent='';
-    document.getElementById('clock-h2').textContent='';
-    document.getElementById('btn-h1').style.cssText='';
-    document.getElementById('btn-h2').style.cssText='';
+    if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
+    document.getElementById('clock').textContent = '00:00';
+    document.getElementById('clock-h1').textContent = '';
+    document.getElementById('clock-h2').textContent = '';
+    document.getElementById('btn-h1').style.cssText = '';
+    document.getElementById('btn-h2').style.cssText = '';
     render();
     localStorage.removeItem(STORAGE_KEY);
   }
