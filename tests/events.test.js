@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { makePassEvent } = require('../events.js');
+const { makePassEvent, makePeriodEvent, makeHalftimeEvent } = require('../events.js');
 
 describe('makePassEvent', () => {
   it('returns all expected fields', () => {
@@ -20,5 +20,30 @@ describe('makePassEvent', () => {
   it('computes elapsedFormatted: 90s → "1:30"', () => {
     const e = makePassEvent('fail', 90, '', 0, 0, 0, null);
     assert.equal(e.elapsedFormatted, '1:30');
+  });
+});
+
+describe('makePeriodEvent', () => {
+  it('returns correct shape', () => {
+    const e = makePeriodEvent(2, 1800, '2026-01-01T00:30:00Z');
+    assert.deepEqual(e, { type: 'period', period: 2, elapsed: 1800, ts: '2026-01-01T00:30:00Z' });
+  });
+});
+
+describe('makeHalftimeEvent', () => {
+  it('start phase returns correct shape', () => {
+    const e = makeHalftimeEvent('start', 1800, '2026-01-01T00:30:00Z');
+    assert.deepEqual(e, { type: 'halftime', phase: 'start', elapsed: 1800, ts: '2026-01-01T00:30:00Z' });
+  });
+
+  it('end phase returns correct shape', () => {
+    const e = makeHalftimeEvent('end', 2700, '2026-01-01T00:45:00Z');
+    assert.deepEqual(e, { type: 'halftime', phase: 'end', elapsed: 2700, ts: '2026-01-01T00:45:00Z' });
+  });
+
+  it('returns a new object each call', () => {
+    const a = makeHalftimeEvent('start', 0, '');
+    const b = makeHalftimeEvent('start', 0, '');
+    assert.notEqual(a, b);
   });
 });

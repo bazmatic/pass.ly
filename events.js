@@ -22,5 +22,13 @@
     };
   }
 
-  return { makePassEvent };
+  function makePeriodEvent(n, elapsed, ts) {
+    return { type: 'period', period: n, elapsed, ts };
+  }
+
+  function makeHalftimeEvent(phase, elapsed, ts) {
+    return { type: 'halftime', phase, elapsed, ts };
+  }
+
+  return { makePassEvent, makePeriodEvent, makeHalftimeEvent };
 }));
