@@ -322,6 +322,7 @@
   function toggleHT() {
     state = GameState.toggleHT(state, elapsedSecs(), isoNow());
     document.getElementById('btn-ht').classList.toggle('active', state.htActive);
+    updatePeriodButtons();
     saveState();
   }
 
@@ -342,7 +343,7 @@
     h2.classList.remove('period-active');
     if (state.period === 1) {
       h1.style.cssText = 'background:#00dd55;color:#000;border:3px solid #fff;';
-      h1.classList.add('period-active');
+      if (!state.htActive) h1.classList.add('period-active');
       h2.style.cssText = '';
     } else if (state.period === 2) {
       h1.style.cssText = 'opacity:0.3;cursor:not-allowed;';
