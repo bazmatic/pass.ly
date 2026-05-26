@@ -576,26 +576,36 @@ function drawTL(canvas, hitIdx) {
     ctx.setLineDash([]);
   }
 
-  // Goal markers
+  // Goal markers — distinct colors, full-height stripe
   (_tlGoals || []).forEach(g => {
     const x     = xOf(g.elapsed);
     const isFor = g.type === 'goal_for';
-    const color = isFor ? 'rgba(34,168,84,0.85)' : 'rgba(232,37,64,0.85)';
-    const label = isFor ? 'F' : 'A';
+    const color = isFor ? '#00d4aa' : '#ff9500';
+    const label = isFor ? 'FOR' : 'AGT';
 
-    // Short vertical tick above the track
+    // Semi-transparent fill stripe through full track height
+    ctx.fillStyle = isFor ? 'rgba(0,212,170,0.10)' : 'rgba(255,149,0,0.10)';
+    ctx.fillRect(x - 4, ty, 8, th);
+
+    // Full-height thick line
     ctx.strokeStyle = color;
-    ctx.lineWidth   = 2;
+    ctx.lineWidth   = 2.5;
     ctx.beginPath();
-    ctx.moveTo(x, ty - 8);
-    ctx.lineTo(x, ty + 4);
+    ctx.moveTo(x, ty);
+    ctx.lineTo(x, ty + th);
     ctx.stroke();
 
-    // Small label
+    // Circle marker at top
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, ty - 6, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Label above circle
     ctx.fillStyle  = color;
-    ctx.font       = `bold 8px 'DM Mono', monospace`;
+    ctx.font       = `bold 9px 'DM Mono', monospace`;
     ctx.textAlign  = 'center';
-    ctx.fillText('⚽' + label, x, ty - 10);
+    ctx.fillText(label, x, ty - 16);
   });
 
   // Time axis
@@ -618,8 +628,8 @@ function drawTL(canvas, hitIdx) {
   const items = [
     { color: 'rgba(34,168,84,0.7)',  label: 'Complete' },
     { color: 'rgba(232,37,64,0.65)', label: 'Failed'   },
-    { color: 'rgba(34,168,84,0.85)', label: '⚽ For'   },
-    { color: 'rgba(232,37,64,0.85)', label: '⚽ Ag.'   },
+    { color: '#00d4aa', label: '⚽ For'   },
+    { color: '#ff9500', label: '⚽ Ag.'   },
   ];
   let lx = TL.PL + tw - 4;
   ctx.font = `8px 'DM Mono', monospace`;
