@@ -174,6 +174,7 @@
     <div class="chart-card" style="position:relative">
       <div class="chart-title">Every Pass</div>
       <canvas id="chart-timeline" style="width:100%;display:block;cursor:crosshair"></canvas>
+      <div id="tl-goal-emojis" style="position:absolute;top:0;left:0;width:100%;pointer-events:none;overflow:visible"></div>
       <div id="tl-tooltip" style="
         display:none; position:absolute; pointer-events:none;
         background:#0f2914; border:1px solid rgba(255,255,255,0.12);
@@ -462,7 +463,7 @@ function renderPassTimeline({ passEvents, p2Mark, htStart, htEnd, goals }) {
   };
 }
 
-const TL = { PL: 10, PR: 10, PT: 6, PB: 38, H: 100 };
+const TL = { PL: 10, PR: 10, PT: 36, PB: 38, H: 130 };
 
 function tlGeom(canvas) {
   const W  = canvas.getBoundingClientRect().width || canvas.offsetWidth;
@@ -595,17 +596,14 @@ function drawTL(canvas, hitIdx) {
     ctx.lineTo(x, ty + th);
     ctx.stroke();
 
-    // Circle marker at top
-    ctx.fillStyle = color;
+    // Soccer ball emoji with colored ring above line
+    const ey = ty - 14;
+    // Ring drawn on canvas (emoji placed via HTML overlay)
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2.5;
     ctx.beginPath();
-    ctx.arc(x, ty - 6, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Label above circle
-    ctx.fillStyle  = color;
-    ctx.font       = `bold 9px 'DM Mono', monospace`;
-    ctx.textAlign  = 'center';
-    ctx.fillText(label, x, ty - 16);
+    ctx.arc(x, ey, 14, 0, Math.PI * 2);
+    ctx.stroke();
   });
 
   // Time axis
@@ -642,6 +640,39 @@ function drawTL(canvas, hitIdx) {
     ctx.fillRect(lx + 4, LY - 7, 8, 8);
     lx -= 16;
   });
+
+  // HTML overlay for goal emojis (avoids monochrome canvas emoji rendering)
+  const overlay = document.getElementById('tl-goal-emojis');
+  if (overlay) {
+    const canvasRect = canvas.getBoundingClientRect();
+    overlay.style.height = canvasRect.height + 'px';
+    overlay.innerHTML = '';
+    (_tlGoals || []).forEach(g => {
+      const x      = xOf(g.elapsed);
+      const isFor  = g.type === 'goal_for';
+      const leftPx = canvas.offsetLeft + x;
+      const topPx  = canvas.offsetTop + TL.PT - 14;
+      const color  = isFor ? '#00d4aa' : '#ff9500';
+      const span   = document.createElement('span');
+      span.textContent = '⚽';
+      span.style.cssText = `
+        position:absolute;
+        left:${leftPx}px;
+        top:${topPx}px;
+        width:28px;
+        height:28px;
+        transform:translate(-50%,-50%);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:18px;
+        line-height:1;
+        filter:drop-shadow(0 0 3px ${color});
+        pointer-events:none;
+      `;
+      overlay.appendChild(span);
+    });
+  }
 }
 
 function showTLTooltip(canvas, tooltip, hitIdx) {
