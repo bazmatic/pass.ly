@@ -519,19 +519,25 @@
   }
 
   function share() {
-    const { complete, fail, poss, streak, best, goalsFor, goalsAgainst } = state;
+    const { complete, fail, poss, streak, best, goalsFor, goalsAgainst, events } = state;
     const total = complete + fail;
+    const pct = (ok, n) => n ? Math.round(ok / n * 100) + '%' : '—';
+    const passEvents = events.filter(e => e.type === 'success' || e.type === 'fail');
+    const h1 = passEvents.filter(e => e.period === 1);
+    const h2 = passEvents.filter(e => e.period === 2);
+    const h1Ok = h1.filter(e => e.type === 'success').length;
+    const h2Ok = h2.filter(e => e.type === 'success').length;
     const text =
-`⚽ Pass Tracker Stats
-──────────────────
+`Passing Stats
+───────────────
 ✅ Complete:  ${complete}
 ❌ Fail:      ${fail}
-⚠️  Lost Poss: ${poss}
-🎯 Accuracy:  ${total ? Math.round(complete / total * 100) + '%' : '—'}
-🔥 Streak:    ${streak}
-⭐ Best:      ${best}
+🎯 Accuracy:  ${pct(complete, total)}
+   1st Half:  ${pct(h1Ok, h1.length)}
+   2nd Half:  ${pct(h2Ok, h2.length)}
+🔥 Streak:    ${best}
 ⚽ Score:     ${goalsFor} – ${goalsAgainst}
-⏱ Duration:  ${formatClock(elapsedSecs())}`;
+⏱ Duration:   ${formatClock(elapsedSecs())}`;
     if (navigator.share) {
       navigator.share({ text }).catch(() => {});
     } else {
