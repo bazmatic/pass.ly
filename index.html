@@ -199,6 +199,7 @@
   .btn-undo   { color:#a0c8ff; border-color:rgba(100,160,255,.15); }
   .btn-undo:disabled { opacity:.25; cursor:not-allowed; }
   .btn-share  { color:#80e8c0; border-color:rgba(80,200,150,.15); }
+  .btn-share-online { color:#80c0ff; border-color:rgba(80,150,255,.15); }
   .btn-export { color:#c8a0ff; border-color:rgba(180,100,255,.15); }
   .btn-clear  { color:#e87070; border-color:rgba(255,80,80,.15); }
 
@@ -278,6 +279,7 @@
   <div class="util-btns">
     <button class="btn-util btn-undo"   id="undo-btn" onclick="undo()" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button>
     <button class="btn-util btn-share"  onclick="share()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
+    <button class="btn-util btn-share-online" onclick="shareOnline()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>
     <button class="btn-util btn-export" onclick="exportData()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
     <button class="btn-util btn-clear"  onclick="clearAll()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
@@ -289,6 +291,20 @@
     <div class="modal-btns">
       <button class="modal-cancel"  onclick="confirmReset(false)">Cancel</button>
       <button class="modal-confirm" onclick="confirmReset(true)">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="share-link-modal">
+  <div class="modal">
+    <div class="modal-title">Shareable Link</div>
+    <div class="modal-body">
+      <input type="text" id="share-link-input" readonly
+             style="width:100%; box-sizing:border-box; padding:0.5rem; margin-top:0.5rem;">
+    </div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="document.getElementById('share-link-modal').classList.remove('show')">Close</button>
+      <button class="modal-confirm" onclick="copyShareLink()">Copy Link</button>
     </div>
   </div>
 </div>
@@ -494,8 +510,7 @@
     pendingHalf = null;
   }
 
-  function exportData() {
-    if (!state.events.length) { toast('No data to export yet'); return; }
+  function buildExportJSON() {
     const { complete, fail, poss, best, goalsFor, goalsAgainst } = state;
     const total = complete + fail;
     const summary = {
@@ -509,13 +524,47 @@
       goalsAgainst,
       duration: formatClock(elapsedSecs()),
     };
-    const jsonData = JSON.stringify({ summary, events: state.events }, null, 2);
+    return { summary, events: state.events };
+  }
+
+  function exportData() {
+    if (!state.events.length) { toast('No data to export yet'); return; }
+    const jsonData = JSON.stringify(buildExportJSON(), null, 2);
     const blob = new Blob([jsonData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `pass-tracker-${new Date().toISOString().slice(0, 10)}.json`;
     a.click(); URL.revokeObjectURL(url);
     toast('Exported as JSON');
+  }
+
+  async function shareOnline() {
+    if (!state.events.length) { toast('No data to share yet'); return; }
+    toast('Uploading…');
+    try {
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildExportJSON()),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.status);
+      const { url } = await res.json();
+      showShareLink(`${location.origin}/stats-viewer.html?data=${encodeURIComponent(url)}`);
+    } catch (err) {
+      toast('Upload failed: ' + err.message);
+    }
+  }
+
+  function showShareLink(shareUrl) {
+    document.getElementById('share-link-input').value = shareUrl;
+    document.getElementById('share-link-modal').classList.add('show');
+  }
+
+  function copyShareLink() {
+    const input = document.getElementById('share-link-input');
+    navigator.clipboard.writeText(input.value)
+      .then(() => toast('Link copied!'))
+      .catch(() => { input.select(); toast('Select and copy manually'); });
   }
 
   function share() {
