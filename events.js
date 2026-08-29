@@ -34,5 +34,9 @@
     return { type, elapsed, elapsedFormatted: formatClock(elapsed), ts };
   }
 
-  return { makePassEvent, makePeriodEvent, makeHalftimeEvent, makeGoalEvent };
+  function makeFullTimeEvent(elapsed, ts) {
+    return { type: 'fulltime', elapsed, elapsedFormatted: formatClock(elapsed), ts };
+  }
+
+  return { makePassEvent, makePeriodEvent, makeHalftimeEvent, makeGoalEvent, makeFullTimeEvent };
 }));

@@ -43,9 +43,24 @@
     return Math.floor((clock.halfOffsets[h] + running) / 1000);
   }
 
+  function stopClock(clock, activePeriod, now) {
+    if (clock.sessionStart === null) return clock;
+    const newClockOffset = clock.clockOffset + (now - clock.sessionStart);
+    const newHalfOffsets = { ...clock.halfOffsets };
+    if (activePeriod !== null) {
+      newHalfOffsets[activePeriod] += now - clock.halfStarts[activePeriod];
+    }
+    return {
+      ...clock,
+      sessionStart: null,
+      clockOffset:  newClockOffset,
+      halfOffsets:  newHalfOffsets,
+    };
+  }
+
   function resetClock() {
     return initialClock();
   }
 
-  return { initialClock, startPeriod, totalElapsed, halfElapsed, resetClock };
+  return { initialClock, startPeriod, totalElapsed, halfElapsed, stopClock, resetClock };
 }));

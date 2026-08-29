@@ -18,6 +18,7 @@
       goalsAgainst: 0,
       period:       null,
       htActive:     false,
+      fullTimeActive: false,
       events:       [],
       history:      [],
     };
@@ -100,9 +101,18 @@
     };
   }
 
+  function endGame(state, elapsed, ts) {
+    if (state.fullTimeActive) return state;
+    return {
+      ...state,
+      fullTimeActive: true,
+      events: [...state.events, Events.makeFullTimeEvent(elapsed, ts)],
+    };
+  }
+
   function resetState() {
     return initialState();
   }
 
-  return { initialState, recordPass, undoLast, activatePeriod, toggleHT, resetState };
+  return { initialState, recordPass, undoLast, activatePeriod, toggleHT, endGame, resetState };
 }));

@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { initialState, recordPass, undoLast, activatePeriod, toggleHT, resetState } = require('../gameState.js');
+const { initialState, recordPass, undoLast, activatePeriod, toggleHT, endGame, resetState } = require('../gameState.js');
 
 describe('initialState', () => {
   it('returns zeroed state with empty arrays', () => {
@@ -14,6 +14,7 @@ describe('initialState', () => {
     assert.equal(s.best, 0);
     assert.equal(s.period, null);
     assert.equal(s.htActive, false);
+    assert.equal(s.fullTimeActive, false);
     assert.deepEqual(s.events, []);
     assert.deepEqual(s.history, []);
   });
@@ -245,6 +246,25 @@ describe('toggleHT', () => {
     s = toggleHT(s, 47 * 60, 'ts');
     assert.equal(s.htActive, false);
     assert.equal(s.events[1].phase, 'end');
+  });
+});
+
+describe('endGame', () => {
+  it('sets fullTimeActive true and appends a fulltime event', () => {
+    const s0 = initialState();
+    const s1 = endGame(s0, 90 * 60, 'ts');
+    assert.equal(s1.fullTimeActive, true);
+    assert.equal(s1.events.length, 1);
+    assert.equal(s1.events[0].type, 'fulltime');
+    assert.equal(s1.events[0].elapsed, 90 * 60);
+  });
+
+  it('is a no-op when called again', () => {
+    let s = initialState();
+    s = endGame(s, 90 * 60, 'ts');
+    const s2 = endGame(s, 95 * 60, 'ts');
+    assert.equal(s2, s);
+    assert.equal(s2.events.length, 1);
   });
 });
 
