@@ -85,10 +85,17 @@
   }
 
   function activatePeriod(state, n, elapsed, ts) {
+    let events = state.events;
+    let htActive = state.htActive;
+    if (htActive && n === 2) {
+      events = [...events, Events.makeHalftimeEvent('end', elapsed, ts)];
+      htActive = false;
+    }
     return {
       ...state,
       period: n,
-      events: [...state.events, Events.makePeriodEvent(n, elapsed, ts)],
+      htActive,
+      events: [...events, Events.makePeriodEvent(n, elapsed, ts)],
     };
   }
 
