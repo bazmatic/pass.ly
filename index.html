@@ -508,6 +508,9 @@
       fullTimeActive: false,
       ...stateFields,
     };
+    // Repair state saved by a buggy build where htActive could get stuck
+    // true forever once the 2nd half started, permanently locking inputs.
+    if (state.period === 2 && state.htActive) state.htActive = false;
     clock = {
       sessionStart: sessionStart ?? null,
       clockOffset:  clockOffset  ?? 0,
