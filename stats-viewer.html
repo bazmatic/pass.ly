@@ -282,9 +282,10 @@ function prepareStats(data) {
   const goalsFor     = summary.goalsFor     ?? goalEvents.filter(e => e.type === 'goal_for').length;
   const goalsAgainst = summary.goalsAgainst ?? goalEvents.filter(e => e.type === 'goal_against').length;
   const p2Mark       = events.filter(e => e.type === 'period').find(e => e.period === 2) ?? null;
-  const p2Idx        = p2Mark ? passEvents.findIndex(e => e.elapsed >= p2Mark.elapsed) : -1;
   const htStart      = events.find(e => e.type === 'halftime' && e.phase === 'start') ?? null;
   const htEnd        = events.find(e => e.type === 'halftime' && e.phase === 'end')   ?? null;
+  const htMarkElapsed = htStart ? htStart.elapsed : (p2Mark ? p2Mark.elapsed : null);
+  const p2Idx        = htMarkElapsed != null ? passEvents.findIndex(e => e.elapsed >= htMarkElapsed) : -1;
   const bestStreakLen = summary.bestStreak ?? 0;
   const streak       = bestStreakLen > 0 ? findBestStreak(passEvents, bestStreakLen) : null;
   const cumData      = passEvents.map(e => e.runningAccuracy);
