@@ -7,6 +7,7 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  button, a { touch-action: manipulation; }
   :root {
     --green: #1a7c3e; --green-bright: #22a854;
     --red: #b81c2e;   --red-bright: #e82540;
@@ -450,6 +451,9 @@
     if (_ac.state === 'suspended') _ac.resume();
     return _ac;
   }
+  // Warm up the AudioContext on the very first touch/click anywhere, so it's
+  // already created and resumed by the time a sound-playing button is tapped.
+  document.addEventListener('pointerdown', () => { try { ac(); } catch(e) {} }, { once: true, passive: true });
   function tone(f1, f2, type, dur, vol) {
     try {
       const ctx = ac(), t = ctx.currentTime;
