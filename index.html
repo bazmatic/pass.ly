@@ -395,9 +395,9 @@
       ? `<span class="pulse-dot"></span>${ft ? 'FULL TIME' : 'END GAME'}`
       : `<span class="pulse-dot"></span>HT`;
     if (ft) document.getElementById('clock').textContent = formatClock(elapsedSecs()) + ' FT';
-    document.querySelectorAll(
-      '.btn-success, .btn-fail, .btn-poss, .btn-goal, .period-btn'
-    ).forEach(el => { el.disabled = ft; });
+    document.querySelectorAll('.period-btn').forEach(el => { el.disabled = ft; });
+    document.querySelectorAll('.btn-success, .btn-fail, .btn-poss, .btn-goal')
+      .forEach(el => { el.disabled = ft || state.htActive; });
   }
 
   function activatePeriod(n) {
@@ -521,6 +521,7 @@
 
   function count(type, btn) {
     if (state.fullTimeActive) return;
+    if (state.htActive) { toast("Can't record passes during halftime"); return; }
     if (type === 'success') soundSuccess();
     else if (type === 'fail') soundFail();
     else if (type === 'poss') soundReset();
@@ -540,6 +541,7 @@
 
   function recordGoal(type, btn) {
     if (state.fullTimeActive) return;
+    if (state.htActive) { toast("Can't record goals during halftime"); return; }
     state = GameState.recordPass(state, type, elapsedSecs(), isoNow());
     render();
     saveState();
