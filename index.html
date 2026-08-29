@@ -216,6 +216,10 @@
   .btn-export { color:#c8a0ff; border-color:rgba(180,100,255,.15); }
   .btn-clear  { color:#e87070; border-color:rgba(255,80,80,.15); }
 
+  /* Footer row: help link + clear button share a row to save space */
+  .footer-row { display:flex; align-items:center; justify-content:center; gap:1rem; flex-shrink:0; }
+  .footer-row .btn-clear { width:auto; padding:.5rem .75rem; }
+
   /* Ripple */
   .ripple { position:absolute; border-radius:50%; transform:scale(0); animation:rippleAnim .4s linear; pointer-events:none; }
   @keyframes rippleAnim { to { transform:scale(4); opacity:0; } }
@@ -300,7 +304,6 @@
     <button class="btn-util btn-share"  onclick="share()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
     <button class="btn-util btn-share-online" onclick="shareOnline()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>
     <button class="btn-util btn-export" onclick="exportData()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
-    <button class="btn-util btn-clear"  onclick="clearAll()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
   </div>
 
 <div class="modal-overlay" id="reset-modal">
@@ -328,7 +331,10 @@
   </div>
 </div>
 
-<a class="help-link" href="help.html" target="_blank">HELP<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:0.7rem;height:0.7rem;opacity:0.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+<div class="footer-row">
+  <a class="help-link" href="help.html" target="_blank">HELP<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:0.7rem;height:0.7rem;opacity:0.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+  <button class="btn-util btn-clear" onclick="clearAll()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:1.2rem;height:1.2rem"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+</div>
 
 <div class="pass-trail" id="pass-trail"></div>
 
