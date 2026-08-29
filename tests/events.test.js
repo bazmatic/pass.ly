@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { makePassEvent, makePeriodEvent, makeHalftimeEvent, makeGoalEvent } = require('../events.js');
+const { makePassEvent, makePeriodEvent, makeHalftimeEvent, makeGoalEvent, makeFullTimeEvent } = require('../events.js');
 
 describe('makePassEvent', () => {
   it('returns all expected fields', () => {
@@ -70,5 +70,17 @@ describe('makeGoalEvent', () => {
     const a = makeGoalEvent('goal_for', 0, '');
     const b = makeGoalEvent('goal_for', 0, '');
     assert.notEqual(a, b);
+  });
+});
+
+describe('makeFullTimeEvent', () => {
+  it('returns correct shape', () => {
+    const e = makeFullTimeEvent(5400, '2026-01-01T01:30:00Z');
+    assert.deepEqual(e, {
+      type: 'fulltime',
+      elapsed: 5400,
+      elapsedFormatted: '90:00',
+      ts: '2026-01-01T01:30:00Z',
+    });
   });
 });

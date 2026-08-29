@@ -56,6 +56,21 @@
   }
   .btn-ht.active { background:#f0a000; color:#000; border-color:#f0a000; }
 
+  /* Full time */
+  .ft-row { flex-shrink:0; }
+  .btn-ft {
+    width:100%; font-family:'Bebas Neue',sans-serif; font-size:.95rem; letter-spacing:.2em;
+    padding:.5rem .75rem; border-radius:3px; border:1px solid rgba(232,37,64,0.2);
+    background:rgba(232,37,64,0.06); color:#e87070;
+    cursor:pointer; transition:all .15s; -webkit-tap-highlight-color:transparent;
+  }
+  .btn-ft:disabled:not(.ended) { opacity:.35; cursor:not-allowed; }
+  .btn-ft.ended { background:#e82540; color:#fff; border-color:#e82540; cursor:default; }
+
+  .btn:disabled, .btn-goal:disabled, .period-btn:disabled, .btn-ht:disabled {
+    opacity:.3; cursor:not-allowed; pointer-events:none;
+  }
+
   /* Reset modal */
   .modal-overlay {
     display: none; position: fixed; inset: 0; z-index: 200;
@@ -255,6 +270,16 @@
     <button class="confirm-yes" onclick="confirmHalf(true)">Yes</button>
   </div>
 
+  <div class="ft-row">
+    <button class="btn-ft" id="btn-ft" onclick="endGameConfirm()" disabled>⏹ FULL TIME</button>
+  </div>
+
+  <div class="confirm-box" id="confirm-ft-box">
+    <div class="confirm-msg">End the game? This stops the clock and locks all inputs.</div>
+    <button class="confirm-no"  onclick="confirmFullTime(false)">No</button>
+    <button class="confirm-yes" onclick="confirmFullTime(true)">Yes</button>
+  </div>
+
   <div class="stats-row">
     <div class="counter success"><div class="counter-label">Complete</div><div class="counter-value" id="val-s">0</div></div>
     <div class="counter fail">   <div class="counter-label">Fail</div>    <div class="counter-value" id="val-f">0</div></div>
@@ -324,6 +349,7 @@
   let clockInterval = null, pendingHalf = null;
 
   function setPeriod(n) {
+    if (state.fullTimeActive) return;
     if (state.period === n) return;
     if (n === 1 && state.period === 2) { toast('1st Half is locked'); return; }
     if (n === 2 && state.period === null) { toast('Start 1st Half first'); return; }
@@ -336,10 +362,39 @@
   }
 
   function toggleHT() {
+    if (state.fullTimeActive) return;
     state = GameState.toggleHT(state, elapsedSecs(), isoNow());
     document.getElementById('btn-ht').classList.toggle('active', state.htActive);
     updatePeriodButtons();
     saveState();
+  }
+
+  function endGameConfirm() {
+    if (state.fullTimeActive || !state.period) return;
+    document.getElementById('confirm-ft-box').classList.add('show');
+  }
+
+  function confirmFullTime(yes) {
+    document.getElementById('confirm-ft-box').classList.remove('show');
+    if (!yes) return;
+    clock = MatchClock.stopClock(clock, state.period, Date.now());
+    if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
+    state = GameState.endGame(state, elapsedSecs(), isoNow());
+    tickClock();
+    updateFullTimeUI();
+    saveState();
+  }
+
+  function updateFullTimeUI() {
+    const ft = state.fullTimeActive;
+    const btn = document.getElementById('btn-ft');
+    btn.disabled = ft || !state.period;
+    btn.classList.toggle('ended', ft);
+    btn.textContent = ft ? '⏹ FULL TIME' : '⏹ END GAME';
+    if (ft) document.getElementById('clock').textContent = formatClock(elapsedSecs()) + ' FT';
+    document.querySelectorAll(
+      '.btn-success, .btn-fail, .btn-poss, .btn-goal, .period-btn, .btn-ht'
+    ).forEach(el => { el.disabled = ft; });
   }
 
   function activatePeriod(n) {
@@ -366,6 +421,7 @@
       h2.style.cssText = 'background:#ffaa00;color:#000;border:3px solid #fff;';
       h2.classList.add('period-active');
     }
+    updateFullTimeUI();
   }
 
   function tickClock() {
@@ -440,8 +496,9 @@
     if (saved.complete === undefined) { localStorage.removeItem(STORAGE_KEY); return; }
     const { sessionStart, clockOffset, halfStarts, halfOffsets, ...stateFields } = saved;
     state = {
-      goalsFor:     0,
-      goalsAgainst: 0,
+      goalsFor:       0,
+      goalsAgainst:   0,
+      fullTimeActive: false,
       ...stateFields,
     };
     clock = {
@@ -452,10 +509,16 @@
     };
     render();
     if (state.htActive) document.getElementById('btn-ht').classList.add('active');
-    if (state.period) { updatePeriodButtons(); tickClock(); clockInterval = setInterval(tickClock, 1000); }
+    if (state.period) {
+      updatePeriodButtons();
+      tickClock();
+      if (!state.fullTimeActive) clockInterval = setInterval(tickClock, 1000);
+    }
+    updateFullTimeUI();
   }
 
   function count(type, btn) {
+    if (state.fullTimeActive) return;
     if (type === 'success') soundSuccess();
     else if (type === 'fail') soundFail();
     else if (type === 'poss') soundReset();
@@ -474,6 +537,7 @@
   }
 
   function recordGoal(type, btn) {
+    if (state.fullTimeActive) return;
     state = GameState.recordPass(state, type, elapsedSecs(), isoNow());
     render();
     saveState();
@@ -499,6 +563,7 @@
     document.getElementById('btn-h2').style.cssText = '';
     document.getElementById('btn-h1').classList.remove('period-active');
     document.getElementById('btn-h2').classList.remove('period-active');
+    updateFullTimeUI();
     render();
     localStorage.removeItem(STORAGE_KEY);
   }

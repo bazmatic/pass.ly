@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { initialClock, startPeriod, totalElapsed, halfElapsed, resetClock } = require('../matchClock.js');
+const { initialClock, startPeriod, totalElapsed, halfElapsed, stopClock, resetClock } = require('../matchClock.js');
 
 describe('initialClock', () => {
   it('returns zeroed state with nulls and zeros', () => {
@@ -96,6 +96,32 @@ describe('halfElapsed', () => {
     const t = 50 * 60 * 1000;
     assert.equal(halfElapsed(c, 1, 2, t), 30 * 60);
     assert.equal(halfElapsed(c, 2, 2, t), 20 * 60);
+  });
+});
+
+describe('stopClock', () => {
+  it('freezes sessionStart and folds running time into clockOffset and the active half', () => {
+    let c = initialClock();
+    c = startPeriod(c, null, 1, 0);
+    c = startPeriod(c, 1,    2, 30 * 60 * 1000);
+    c = stopClock(c, 2, 50 * 60 * 1000);
+    assert.equal(c.sessionStart, null);
+    assert.equal(c.clockOffset, 50 * 60 * 1000);
+    assert.equal(c.halfOffsets[2], 20 * 60 * 1000);
+    assert.equal(totalElapsed(c, 99 * 60 * 1000), 50 * 60);
+  });
+
+  it('is a no-op when the clock is already stopped', () => {
+    const c = initialClock();
+    const c2 = stopClock(c, null, 1000);
+    assert.equal(c2, c);
+  });
+
+  it('elapsed stays frozen after stopping even as "now" advances', () => {
+    let c = initialClock();
+    c = startPeriod(c, null, 1, 0);
+    c = stopClock(c, 1, 10 * 1000);
+    assert.equal(totalElapsed(c, 999999), 10);
   });
 });
 
