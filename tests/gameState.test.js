@@ -229,6 +229,28 @@ describe('activatePeriod', () => {
     assert.equal(s1.period, 2);
     assert.equal(s1.events[0].period, 2);
   });
+
+  it('clears htActive and appends a halftime end event when starting 2nd half while HT is still active', () => {
+    let s = initialState();
+    s = activatePeriod(s, 1, 0, 'ts');
+    s = toggleHT(s, 45 * 60, 'ts'); // HT starts, forgot to toggle off
+    assert.equal(s.htActive, true);
+    s = activatePeriod(s, 2, 46 * 60, 'ts');
+    assert.equal(s.htActive, false);
+    assert.equal(s.events.length, 4);
+    assert.equal(s.events[2].type, 'halftime');
+    assert.equal(s.events[2].phase, 'end');
+    assert.equal(s.events[3].type, 'period');
+    assert.equal(s.events[3].period, 2);
+  });
+
+  it('does not touch htActive when starting period 2 with HT already off', () => {
+    let s = initialState();
+    s = activatePeriod(s, 1, 0, 'ts');
+    s = activatePeriod(s, 2, 45 * 60, 'ts');
+    assert.equal(s.htActive, false);
+    assert.equal(s.events.length, 2);
+  });
 });
 
 describe('toggleHT', () => {
