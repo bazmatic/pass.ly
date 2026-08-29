@@ -56,20 +56,18 @@
   }
   .btn-ht.active { background:#f0a000; color:#000; border-color:#f0a000; }
 
-  /* Full time */
-  .ft-row { flex-shrink:0; }
-  .btn-ft {
-    width:100%; font-family:'Bebas Neue',sans-serif; font-size:.95rem; letter-spacing:.2em;
-    padding:.5rem .75rem; border-radius:3px; border:1px solid rgba(232,37,64,0.2);
-    background:rgba(232,37,64,0.06); color:#e87070;
-    cursor:pointer; transition:all .15s; -webkit-tap-highlight-color:transparent;
+  /* Full time — the HT button converts into this once the 2nd half starts */
+  .btn-ht.ft-mode {
+    border-color: rgba(232,37,64,0.2); background: rgba(232,37,64,0.06); color:#e87070;
   }
-  .btn-ft:disabled:not(.ended) { opacity:.35; cursor:not-allowed; }
-  .btn-ft.ended { background:#e82540; color:#fff; border-color:#e82540; cursor:default; }
+  .btn-ht.ft-mode.ended {
+    background:#e82540; color:#fff; border-color:#e82540; cursor:default;
+  }
 
   .btn:disabled, .btn-goal:disabled, .period-btn:disabled, .btn-ht:disabled {
     opacity:.3; cursor:not-allowed; pointer-events:none;
   }
+  .btn-ht.ft-mode.ended:disabled { opacity:1; pointer-events:none; }
 
   /* Reset modal */
   .modal-overlay {
@@ -260,7 +258,7 @@
 
   <div class="period-row">
     <button class="period-btn" id="btn-h1" onclick="setPeriod(1)"><span class="pulse-dot"></span>▶ 1st <span id="clock-h1"></span></button>
-    <button class="btn-ht" id="btn-ht" onclick="toggleHT()"><span class="pulse-dot"></span>HT</button>
+    <button class="btn-ht" id="btn-mid" onclick="onMidBtnClick()"><span class="pulse-dot"></span>HT</button>
     <button class="period-btn" id="btn-h2" onclick="setPeriod(2)"><span class="pulse-dot"></span>▶ 2nd <span id="clock-h2"></span></button>
   </div>
 
@@ -268,10 +266,6 @@
     <div class="confirm-msg">Start 2nd Half? 1st Half will be locked.</div>
     <button class="confirm-no"  onclick="confirmHalf(false)">No</button>
     <button class="confirm-yes" onclick="confirmHalf(true)">Yes</button>
-  </div>
-
-  <div class="ft-row">
-    <button class="btn-ft" id="btn-ft" onclick="endGameConfirm()" disabled>⏹ FULL TIME</button>
   </div>
 
   <div class="confirm-box" id="confirm-ft-box">
@@ -361,16 +355,20 @@
     activatePeriod(n);
   }
 
+  function onMidBtnClick() {
+    if (state.period === 2) endGameConfirm();
+    else toggleHT();
+  }
+
   function toggleHT() {
     if (state.fullTimeActive) return;
     state = GameState.toggleHT(state, elapsedSecs(), isoNow());
-    document.getElementById('btn-ht').classList.toggle('active', state.htActive);
-    updatePeriodButtons();
+    updateMidButton();
     saveState();
   }
 
   function endGameConfirm() {
-    if (state.fullTimeActive || !state.period) return;
+    if (state.fullTimeActive || state.period !== 2) return;
     document.getElementById('confirm-ft-box').classList.add('show');
   }
 
@@ -381,19 +379,24 @@
     if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
     state = GameState.endGame(state, elapsedSecs(), isoNow());
     tickClock();
-    updateFullTimeUI();
+    updateMidButton();
     saveState();
   }
 
-  function updateFullTimeUI() {
-    const ft = state.fullTimeActive;
-    const btn = document.getElementById('btn-ft');
-    btn.disabled = ft || !state.period;
-    btn.classList.toggle('ended', ft);
-    btn.textContent = ft ? '⏹ FULL TIME' : '⏹ END GAME';
+  function updateMidButton() {
+    const btn = document.getElementById('btn-mid');
+    const ft  = state.fullTimeActive;
+    const ftMode = state.period === 2;
+    btn.classList.toggle('ft-mode', ftMode);
+    btn.classList.toggle('ended', ftMode && ft);
+    btn.classList.toggle('active', !ftMode && state.htActive);
+    btn.disabled = ft;
+    btn.innerHTML = ftMode
+      ? `<span class="pulse-dot"></span>${ft ? 'FULL TIME' : 'END GAME'}`
+      : `<span class="pulse-dot"></span>HT`;
     if (ft) document.getElementById('clock').textContent = formatClock(elapsedSecs()) + ' FT';
     document.querySelectorAll(
-      '.btn-success, .btn-fail, .btn-poss, .btn-goal, .period-btn, .btn-ht'
+      '.btn-success, .btn-fail, .btn-poss, .btn-goal, .period-btn'
     ).forEach(el => { el.disabled = ft; });
   }
 
@@ -421,7 +424,7 @@
       h2.style.cssText = 'background:#ffaa00;color:#000;border:3px solid #fff;';
       h2.classList.add('period-active');
     }
-    updateFullTimeUI();
+    updateMidButton();
   }
 
   function tickClock() {
@@ -508,13 +511,12 @@
       halfOffsets:  halfOffsets  ?? { 1: 0,    2: 0    },
     };
     render();
-    if (state.htActive) document.getElementById('btn-ht').classList.add('active');
     if (state.period) {
       updatePeriodButtons();
       tickClock();
       if (!state.fullTimeActive) clockInterval = setInterval(tickClock, 1000);
     }
-    updateFullTimeUI();
+    updateMidButton();
   }
 
   function count(type, btn) {
@@ -554,7 +556,6 @@
     if (!yes) return;
     state = GameState.resetState();
     clock = MatchClock.resetClock();
-    document.getElementById('btn-ht').classList.remove('active');
     if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
     document.getElementById('clock').textContent = '00:00';
     document.getElementById('clock-h1').textContent = '';
@@ -563,7 +564,7 @@
     document.getElementById('btn-h2').style.cssText = '';
     document.getElementById('btn-h1').classList.remove('period-active');
     document.getElementById('btn-h2').classList.remove('period-active');
-    updateFullTimeUI();
+    updateMidButton();
     render();
     localStorage.removeItem(STORAGE_KEY);
   }
